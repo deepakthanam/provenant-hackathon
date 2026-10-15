@@ -1,0 +1,22 @@
+{
+  "name": "@provenant/server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/main.ts",
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc -p .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.0.0",
+    "@fastify/swagger": "^9.5.1",
+    "@fastify/swagger-ui": "^5.2.0",
+    "@provenant/config": "workspace:*",
+    "@provenant/db": "workspace:*",
+    "fastify": "^5.5.0",
+    "fastify-type-provider-zod": "^6.0.0",
+    "zod": "^4.1.5"
+  }
+}

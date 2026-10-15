@@ -1,0 +1,17 @@
+packages:
+  - apps/*
+  - packages/*
+
+# Supply-chain guard: never resolve a package version published less than 14 days ago.
+minimumReleaseAge: 20160
+
+onlyBuiltDependencies:
+  - esbuild
+  - "@biomejs/biome"
+  - embedded-postgres
+  - "@embedded-postgres/windows-x64"
+  - "@embedded-postgres/linux-x64"
+  - "@embedded-postgres/darwin-arm64"
+  - "@embedded-postgres/darwin-x64"
+  - sharp
+  - "@tailwindcss/oxide"

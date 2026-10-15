@@ -1,0 +1,16 @@
+{
+  "name": "@provenant/demo-store",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/main.ts",
+    "start": "tsx src/main.ts",
+    "typecheck": "tsc -p .",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@provenant/config": "workspace:*",
+    "fastify": "^5.5.0"
+  }
+}

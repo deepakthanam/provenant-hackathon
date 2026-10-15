@@ -1,0 +1,26 @@
+{
+  "name": "@provenant/db",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema.ts",
+    "./embedded": "./src/embedded.ts"
+  },
+  "scripts": {
+    "generate": "drizzle-kit generate",
+    "typecheck": "tsc -p .",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@provenant/config": "workspace:*",
+    "drizzle-orm": "^0.44.0",
+    "embedded-postgres": "16.14.0-beta.17",
+    "pg": "^8.16.0"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.0",
+    "drizzle-kit": "^0.31.0"
+  }
+}

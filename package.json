@@ -1,0 +1,37 @@
+{
+  "name": "provenant",
+  "private": true,
+  "description": "Signed evidence bundles and dispute adjudication for AI-agent purchases on PayPal",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.34.6",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "bootstrap": "pnpm install && tsx scripts/setup.ts",
+    "setup": "pnpm install && tsx scripts/setup.ts",
+    "dev": "tsx scripts/dev.ts",
+    "db": "tsx scripts/db.ts",
+    "db:stop": "tsx scripts/db-stop.ts",
+    "db:generate": "pnpm --filter @provenant/db generate",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "keygen": "tsx scripts/keygen.ts",
+    "test": "turbo run test",
+    "typecheck": "turbo run typecheck && tsc -p .",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "turbo": "^2.5.0",
+    "typescript": "~5.9.3",
+    "vitest": "^4.0.0"
+  },
+  "dependencies": {
+    "@provenant/config": "workspace:*",
+    "@provenant/db": "workspace:*"
+  }
+}
