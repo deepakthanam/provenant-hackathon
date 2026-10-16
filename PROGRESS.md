@@ -12,8 +12,8 @@
 | M5 Adjudicator | ✅ done |
 | M6 Actions | ✅ done (mock verified; sandbox run pending credentials) |
 | M7 Console | ✅ done |
-| M8 MCP, Postman, docs | ⏭ next |
-| M9 Hardening | ☐ |
+| M8 MCP, Postman, docs | ✅ done |
+| M9 Hardening | ⏭ next |
 
 ## M0: what was done
 
@@ -148,9 +148,19 @@ Also tested: the PDF really reaches PayPal (downloaded back as `%PDF`); double a
 
 Check: Playwright smoke test (`pnpm test:e2e`, needs `pnpm dev` running). Its global setup creates a fresh dispute; the test opens the queue, finds the stamped row, opens the label panel and then the evidence bag, sees SEAL INTACT, approves, sees "Sent to PayPal.", the status becomes "Under PayPal review", and the queue row shows "Sent to PayPal". It passes.
 
-## Next (M8)
+## M8: what was done
 
-Provenant MCP server; Postman collection + environment run with Newman; OpenAPI check; `docs/architecture.md` (Mermaid) and `docs/verdicts.md`.
+- **MCP server** (`packages/mcp-server`, `@modelcontextprotocol/sdk` 1.31, stdio): `create_bundle` (takes the user's signature, or `sign_as_demo_user` in demos), `record_offer` (fetches and hashes the image), `seal_order` (cart → prepare → seal, and reminds you of the required custom_id and amount), `get_evidence_bundle` (by bundle or PayPal order), `verify_bundle`, `list_disputes`, `adjudicate_dispute`, `explain_verdict` (reasons with refs, failed checks, cited findings, the exact planned call). It anchors on its own path to find the repo's `.env`, so it works from any directory an MCP host launches it in. Setup for Claude Code and Claude Desktop is in the README. Tests use an in-memory MCP client; a real stdio run was also checked.
+- **Postman** (`postman/`): a 25-request collection plus an environment template covering the main flow in mock mode (dev-sign mandate → bundle → offer → decision → cart → prepare → PayPal OAuth / order with custom_id / seal / buyer approve / capture → capture sync → delivery → verify → receipt → dispute → poll → verdict → PDF → approve → sandbox settle → double-approve 409 → liability → 401). `pnpm postman` fills the environment from `.env` (gitignored copy) and runs **Newman**.
+- `POST /dev/demo-user/sign` (dev + mock only): signs a mandate or confirmation as a demo user, because Postman cannot do Ed25519.
+- **OpenAPI**: served at `/docs` (Swagger UI) and `/docs/json`; `pnpm openapi` writes `docs/openapi.json` (26 paths; dev routes excluded).
+- **Docs**: `docs/architecture.md` (Mermaid system and sequence diagrams, ledger, linking, who decides what, modes), `docs/verdicts.md` (verdict table, pipeline, decision rules, action table, injection guard, scenarios), `docs/api.md`, and a full **README** (pitch, Mermaid diagram, three-command quick start, scenarios, what AI decides and never decides, how each PayPal API is used with links, sandbox setup including the dispute-creation caveat, tunnel and polling, MCP setup, tests, licence).
+
+Check: `pnpm postman` → Newman ran 25 requests with 40 assertions and 0 failures against local mock mode. 161 tests pass.
+
+## Next (M9)
+
+Hardening: input limits, rate limiting on public routes, structured logging with request ids (no PII, no secrets), error pages, seed data, `render.yaml`, and a fresh-clone run of `pnpm bootstrap && pnpm demo`.
 
 ## Deviations from the spec
 
@@ -183,6 +193,7 @@ Provenant MCP server; Postman collection + environment run with Newman; OpenAPI 
 | D25 | Approve executes "the planned call" | Executions re-check PayPal's live links and allowed options first; overrides are limited to the five dispute actions and validated against PayPal's options | The plan can be stale by the time a human approves |
 | D26 | AG Grid "row grouping by verdict" | Group-by-verdict built from full-width section rows, plus verdict filter stamps | Row grouping is an AG Grid Enterprise feature; the spec fixes AG Grid Community |
 | D27 | Console auth | The console holds the admin key server-side and proxies a fixed list of endpoints; there is no login | Local demo; console login is tracked for M9 / deployment |
+| D28 | Postman runs the main flow with no extra helpers | It uses `/dev/demo-user/sign` to obtain the user's Ed25519 signature | Postman's sandbox cannot do Ed25519; production users sign on their own device |
 
 ## Known local quirks (Windows)
 

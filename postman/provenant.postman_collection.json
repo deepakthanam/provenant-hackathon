@@ -1,0 +1,1196 @@
+{
+  "info": {
+    "name": "Provenant (mock mode)",
+    "description": "Main flow end to end against a local Provenant in mock PayPal mode: signed mandate → evidence bundle → PayPal order with custom_id → capture → delivery → dispute → verdict → approved provide-evidence → sandbox settlement. Run: `pnpm postman` (generates the environment from .env and runs Newman).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "userRef",
+      "value": ""
+    },
+    {
+      "key": "expiresAt",
+      "value": ""
+    },
+    {
+      "key": "userSig",
+      "value": ""
+    },
+    {
+      "key": "userPub",
+      "value": ""
+    },
+    {
+      "key": "bundleId",
+      "value": ""
+    },
+    {
+      "key": "paypalToken",
+      "value": ""
+    },
+    {
+      "key": "orderId",
+      "value": ""
+    },
+    {
+      "key": "captureId",
+      "value": ""
+    },
+    {
+      "key": "disputeId",
+      "value": ""
+    },
+    {
+      "key": "now",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Setup",
+      "item": [
+        {
+          "name": "Health",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"userRef\", \"usr_postman\" + Date.now());",
+                  "pm.collectionVariables.set(\"expiresAt\", new Date(Date.now() + 7 * 864e5).toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"db ok\", () => pm.expect(pm.response.json().db).to.eql(\"ok\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/healthz",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "healthz"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dev: sign the mandate as a demo user",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "const r = pm.response.json();",
+                  "pm.collectionVariables.set(\"userSig\", r.user_sig);",
+                  "pm.collectionVariables.set(\"userPub\", r.user_public_key);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{platformKey}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_ref\": \"{{userRef}}\",\n  \"mandate\": {\n    \"text\": \"Buy black running shoes, size 10, under $90.\",\n    \"max_amount\": {\n      \"value\": \"90.00\",\n      \"currency\": \"USD\"\n    },\n    \"confirm_above\": null,\n    \"allowed_categories\": [\n      \"footwear\"\n    ],\n    \"allowed_merchants\": [\n      \"demo-store\"\n    ],\n    \"expires_at\": \"{{expiresAt}}\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/dev/demo-user/sign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "dev",
+                "demo-user",
+                "sign"
+              ]
+            },
+            "description": "Mock/dev only. Postman cannot sign Ed25519; the server signs as a demo user (in production the user’s device signs)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Agent records evidence",
+      "item": [
+        {
+          "name": "Create bundle from signed mandate",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "const b = pm.response.json();",
+                  "pm.test(\"OPEN\", () => pm.expect(b.status).to.eql(\"OPEN\"));",
+                  "pm.collectionVariables.set(\"bundleId\", b.bundle_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{platformKey}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_ref\": \"{{userRef}}\",\n  \"user_public_key\": \"{{userPub}}\",\n  \"agent_version\": \"postman\",\n  \"intent_mandate\": {\n    \"text\": \"Buy black running shoes, size 10, under $90.\",\n    \"max_amount\": {\n      \"value\": \"90.00\",\n      \"currency\": \"USD\"\n    },\n    \"confirm_above\": null,\n    \"allowed_categories\": [\n      \"footwear\"\n    ],\n    \"allowed_merchants\": [\n      \"demo-store\"\n    ],\n    \"expires_at\": \"{{expiresAt}}\",\n    \"user_sig\": \"{{userSig}}\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/bundles",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "bundles"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Record offer snapshot",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{platformKey}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"merchant_id\": \"demo-store\",\n  \"url\": \"http://localhost:4100/p/RUN-BLK-10\",\n  \"title\": \"Trail runner, black\",\n  \"attributes\": {\n    \"color\": \"black\",\n    \"size\": \"10\",\n    \"style\": \"trail\"\n  },\n  \"price\": {\n    \"value\": \"84.00\",\n    \"currency\": \"USD\"\n  },\n  \"delivery_promise\": {\n    \"min_days\": 3,\n    \"max_days\": 5\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/bundles/{{bundleId}}/offer",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "bundles",
+                "{{bundleId}}",
+                "offer"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Record decision",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{platformKey}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"step\": \"compared_offers\",\n  \"detail\": \"Postman run: 1 candidate\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/bundles/{{bundleId}}/decision",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "bundles",
+                "{{bundleId}}",
+                "decision"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Set cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{platformKey}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cart\": [\n    {\n      \"sku\": \"RUN-BLK-10\",\n      \"name\": \"Trail runner\",\n      \"qty\": 1,\n      \"unit_price\": {\n        \"value\": \"84.00\",\n        \"currency\": \"USD\"\n      },\n      \"category\": \"footwear\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/bundles/{{bundleId}}/cart",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "bundles",
+                "{{bundleId}}",
+                "cart"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Prepare order (custom_id)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"custom_id is the bundle id\", () => pm.expect(pm.response.json().custom_id).to.eql(pm.collectionVariables.get(\"bundleId\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{platformKey}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/bundles/{{bundleId}}/prepare-order",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "bundles",
+                "{{bundleId}}",
+                "prepare-order"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. PayPal checkout (mock PayPal, same paths as the real API)",
+      "item": [
+        {
+          "name": "OAuth token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set(\"paypalToken\", pm.response.json().access_token);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [],
+            "url": {
+              "raw": "{{paypalBase}}/v1/oauth2/token",
+              "host": [
+                "{{paypalBase}}"
+              ],
+              "path": [
+                "v1",
+                "oauth2",
+                "token"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create order with custom_id",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.upsert({ key: \"PayPal-Request-Id\", value: pm.variables.replaceIn(\"{{$guid}}\") });"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "const o = pm.response.json();",
+                  "pm.collectionVariables.set(\"orderId\", o.id);",
+                  "pm.test(\"custom_id set\", () => pm.expect(o.purchase_units[0].custom_id).to.eql(pm.collectionVariables.get(\"bundleId\")));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paypalToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"intent\": \"CAPTURE\",\n  \"purchase_units\": [\n    {\n      \"reference_id\": \"default\",\n      \"custom_id\": \"{{bundleId}}\",\n      \"amount\": {\n        \"currency_code\": \"USD\",\n        \"value\": \"84.00\"\n      }\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{paypalBase}}/v2/checkout/orders",
+              "host": [
+                "{{paypalBase}}"
+              ],
+              "path": [
+                "v2",
+                "checkout",
+                "orders"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Seal bundle to the order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"SEALED\", () => pm.expect(pm.response.json().status).to.eql(\"SEALED\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{platformKey}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paypal_order_id\": \"{{orderId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/bundles/{{bundleId}}/seal",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "bundles",
+                "{{bundleId}}",
+                "seal"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Mock buyer approves",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [],
+            "url": {
+              "raw": "{{paypalBase}}/_buyer/orders/{{orderId}}/approve",
+              "host": [
+                "{{paypalBase}}"
+              ],
+              "path": [
+                "_buyer",
+                "orders",
+                "{{orderId}}",
+                "approve"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Capture order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"captureId\", pm.response.json().purchase_units[0].payments.captures[0].id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{paypalToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{paypalBase}}/v2/checkout/orders/{{orderId}}/capture",
+              "host": [
+                "{{paypalBase}}"
+              ],
+              "path": [
+                "v2",
+                "checkout",
+                "orders",
+                "{{orderId}}",
+                "capture"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Record capture (verified against PayPal)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"captured 84.00\", () => pm.expect(pm.response.json().captured_amount.value).to.eql(\"84.00\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{platformKey}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paypal_capture_id\": \"{{captureId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/bundles/{{bundleId}}/capture",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "bundles",
+                "{{bundleId}}",
+                "capture"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Merchant records delivery",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set(\"now\", new Date().toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"FULFILLED\", () => pm.expect(pm.response.json().status).to.eql(\"FULFILLED\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchantKey}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"carrier\": \"UPS\",\n  \"tracking_number\": \"1ZPOSTMAN01\",\n  \"status\": \"DELIVERED\",\n  \"shipped_at\": \"{{now}}\",\n  \"delivered_at\": \"{{now}}\",\n  \"shipped_items\": [\n    {\n      \"sku\": \"RUN-BLK-10\",\n      \"attributes\": {\n        \"color\": \"black\"\n      }\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/bundles/{{bundleId}}/fulfilment",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "bundles",
+                "{{bundleId}}",
+                "fulfilment"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Verify bundle",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"seal intact\", () => pm.expect(pm.response.json().ok).to.eql(true));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminKey}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/bundles/{{bundleId}}/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "bundles",
+                "{{bundleId}}",
+                "verify"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Buyer receipt (public HTML)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"intact\", () => pm.expect(pm.response.text()).to.include(\"Record intact and signed\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/bundles/{{bundleId}}/receipt",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "bundles",
+                "{{bundleId}}",
+                "receipt"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Dispute → verdict → PayPal action",
+      "item": [
+        {
+          "name": "Mock buyer opens a dispute",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 201\", () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set(\"disputeId\", pm.response.json().dispute_id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"capture_id\": \"{{captureId}}\",\n  \"reason\": \"MERCHANDISE_OR_SERVICE_NOT_AS_DESCRIBED\",\n  \"message\": \"I never wanted these.\"\n}"
+            },
+            "url": {
+              "raw": "{{paypalBase}}/_buyer/disputes",
+              "host": [
+                "{{paypalBase}}"
+              ],
+              "path": [
+                "_buyer",
+                "disputes"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Poll PayPal for disputes",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchantKey}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/disputes/sync",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "disputes",
+                "sync"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Dispute with verdict and planned call",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "const d = pm.response.json();",
+                  "pm.test(\"linked to the bundle\", () => pm.expect(d.bundle_id).to.eql(pm.collectionVariables.get(\"bundleId\")));",
+                  "pm.test(\"WITHIN_MANDATE\", () => pm.expect(d.latest_verdict.verdict).to.eql(\"WITHIN_MANDATE\"));",
+                  "pm.test(\"plans provide_evidence\", () => pm.expect(d.latest_verdict.recommended_action.kind).to.eql(\"provide_evidence\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchantKey}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/disputes/{{disputeId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "disputes",
+                "{{disputeId}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Evidence report PDF",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"is a PDF\", () => pm.expect(pm.response.headers.get(\"Content-Type\")).to.include(\"application/pdf\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchantKey}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/disputes/{{disputeId}}/report.pdf",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "disputes",
+                "{{disputeId}}",
+                "report.pdf"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Approve: send provide-evidence to PayPal",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"executed\", () => pm.expect(pm.response.json().action.status).to.eql(\"EXECUTED\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchantKey}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"approved_by\": \"postman\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/disputes/{{disputeId}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "disputes",
+                "{{disputeId}}",
+                "approve"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Sandbox: PayPal settles for the seller",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"seller wins\", () => pm.expect(pm.response.json().outcome).to.eql(\"RESOLVED_SELLER_FAVOUR\"));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchantKey}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"outcome\": \"SELLER_FAVOR\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/disputes/{{disputeId}}/sandbox/adjudicate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "disputes",
+                "{{disputeId}}",
+                "sandbox",
+                "adjudicate"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Approving again is refused",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 409\", () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{merchantKey}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/disputes/{{disputeId}}/approve",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "disputes",
+                "{{disputeId}}",
+                "approve"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Liability ledger",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{adminKey}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/liability",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "liability"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Unauthenticated request is rejected",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"status 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "auth": {
+              "type": "noauth"
+            },
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/disputes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "v1",
+                "disputes"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

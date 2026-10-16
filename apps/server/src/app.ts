@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
+import { join } from 'node:path';
 import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
-import type { Env } from '@provenant/config';
+import { type Env, findRepoRoot } from '@provenant/config';
 import type { Db } from '@provenant/db';
 import { type BlobStore, BundleStore, type Signer } from '@provenant/evidence';
 import type { LlmProvider } from '@provenant/llm';
@@ -180,7 +181,11 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   });
   await app.register(liabilityRoutes, { db: deps.db, authenticate });
   if (deps.env.NODE_ENV !== 'production' && deps.paypal.mode === 'mock') {
-    await app.register(devRoutes, { db: deps.db, authenticate });
+    await app.register(devRoutes, {
+      db: deps.db,
+      dataDir: deps.env.DATA_DIR ?? join(findRepoRoot(), 'data'),
+      authenticate,
+    });
   }
 
   return app;

@@ -27,7 +27,10 @@
     "scenario": "pnpm --filter @provenant/demo-agent scenario",
     "demo": "pnpm --filter @provenant/demo-agent scenario all",
     "replay": "tsx scripts/replay.ts",
-    "test:e2e": "pnpm --filter @provenant/console test:e2e"
+    "test:e2e": "pnpm --filter @provenant/console test:e2e",
+    "mcp": "pnpm --silent --filter @provenant/mcp-server start",
+    "postman": "tsx scripts/postman.ts",
+    "openapi": "tsx scripts/openapi.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
@@ -35,7 +38,8 @@
     "tsx": "^4.20.0",
     "turbo": "^2.5.0",
     "typescript": "~5.9.3",
-    "vitest": "^4.0.0"
+    "vitest": "^4.0.0",
+    "newman": "^6.2.0"
   },
   "dependencies": {
     "@provenant/config": "workspace:*",
