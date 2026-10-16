@@ -25,7 +25,7 @@
     "dev:stop": "tsx scripts/dev-stop.ts",
     "agent": "pnpm --filter @provenant/demo-agent agent",
     "scenario": "pnpm --filter @provenant/demo-agent scenario",
-    "demo": "pnpm --filter @provenant/demo-agent scenario all",
+    "demo": "tsx scripts/demo.ts",
     "replay": "tsx scripts/replay.ts",
     "test:e2e": "pnpm --filter @provenant/console test:e2e",
     "mcp": "pnpm --silent --filter @provenant/mcp-server start",

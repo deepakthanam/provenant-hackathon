@@ -15,6 +15,7 @@ export async function webhookRoutes(app: FastifyInstance, opts: { intake: Disput
   app.post(
     '/webhooks/paypal',
     {
+      config: { rateLimit: { max: 600, timeWindow: '1 minute' } },
       schema: {
         tags: ['webhooks'],
         summary: 'PayPal webhook receiver (CUSTOMER.DISPUTE.*, PAYMENT.CAPTURE.COMPLETED)',

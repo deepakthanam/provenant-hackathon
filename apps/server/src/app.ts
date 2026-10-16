@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import { type Env, findRepoRoot } from '@provenant/config';
@@ -50,7 +51,22 @@ export interface AppDeps {
 
 export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({
-    logger: deps.env.NODE_ENV === 'test' ? false : { level: 'info' },
+    logger:
+      deps.env.NODE_ENV === 'test'
+        ? false
+        : {
+            level: 'info',
+            // Structured JSON with request ids; never credentials or signatures. Bodies are not logged.
+            redact: {
+              paths: [
+                'req.headers.authorization',
+                'req.headers["paypal-auth-assertion"]',
+                'req.headers["paypal-transmission-sig"]',
+                'req.headers.cookie',
+              ],
+              censor: '[redacted]',
+            },
+          },
     bodyLimit: 6 * 1024 * 1024,
     genReqId: (req) => {
       const given = req.headers['x-request-id'];
@@ -62,10 +78,15 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   app.setSerializerCompiler(serializerCompiler);
   app.addHook('onSend', async (req, reply) => {
     reply.header('x-request-id', req.id);
+    reply.header('x-content-type-options', 'nosniff');
+    reply.header('referrer-policy', 'no-referrer');
+    reply.header('x-frame-options', 'DENY');
   });
   registerErrorHandler(app);
 
   await app.register(cors, { origin: [deps.env.CONSOLE_PUBLIC_URL] });
+  // Opt-in per route: only the unauthenticated surfaces (receipt, blobs, webhooks, mock buyer) are limited.
+  await app.register(rateLimit, { global: false });
   await app.register(swagger, {
     openapi: {
       info: {

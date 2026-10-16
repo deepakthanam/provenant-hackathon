@@ -1,0 +1,102 @@
+# Render Blueprint (not deployed yet). Same code as local; Postgres is Render's, PayPal defaults to mock.
+# Fill the `sync: false` values in the Render dashboard (generate keys locally with `pnpm keygen --print`).
+databases:
+  - name: provenant-db
+    plan: basic-256mb
+    postgresMajorVersion: "16"
+
+envVarGroups:
+  - name: provenant-shared
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_MODE
+        value: external
+      - key: PAYPAL_MODE
+        value: mock
+      - key: LLM_PROVIDER
+        value: mock
+      - key: LLM_MODEL
+        value: claude-sonnet-5-5
+      - key: AUTO_ACTION
+        value: "false"
+      - key: CONFIDENCE_THRESHOLD
+        value: "0.75"
+      - key: SHARED_FAULT_REFUND_PCT
+        value: "50"
+      - key: MOCK_PAYPAL_WEBHOOKS
+        value: "true"
+      - key: DISPUTE_POLL_INTERVAL_SEC
+        value: "60"
+      - key: PROVENANT_SIGNING_PRIVATE_KEY
+        sync: false
+      - key: PROVENANT_SIGNING_PUBLIC_KEY
+        sync: false
+      - key: PROVENANT_ADMIN_API_KEY
+        sync: false
+      - key: PROVENANT_PLATFORM_API_KEY
+        sync: false
+      - key: PROVENANT_MERCHANT_API_KEY
+        sync: false
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: PUBLIC_BASE_URL
+        value: https://provenant-api.onrender.com
+      - key: CONSOLE_PUBLIC_URL
+        value: https://provenant-console.onrender.com
+      - key: DEMO_STORE_URL
+        value: https://provenant-store.onrender.com
+
+services:
+  - type: web
+    name: provenant-api
+    runtime: node
+    plan: starter
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    preDeployCommand: pnpm db:migrate
+    startCommand: pnpm --filter @provenant/server start
+    healthCheckPath: /healthz
+    disk:
+      name: provenant-blobs
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - fromGroup: provenant-shared
+      - key: DATABASE_URL
+        fromDatabase:
+          name: provenant-db
+          property: connectionString
+      - key: DATA_DIR
+        value: /var/data
+
+  - type: web
+    name: provenant-console
+    runtime: node
+    plan: starter
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @provenant/console build
+    startCommand: pnpm --filter @provenant/console start
+    envVars:
+      - fromGroup: provenant-shared
+      - key: CONSOLE_PASSWORD
+        sync: false
+      # Render routes to $PORT (10000 by default); the console reads CONSOLE_PORT.
+      - key: CONSOLE_PORT
+        value: "10000"
+
+  - type: web
+    name: provenant-store
+    runtime: node
+    plan: starter
+    buildCommand: corepack enable && pnpm install --frozen-lockfile
+    startCommand: pnpm --filter @provenant/demo-store start
+    healthCheckPath: /healthz
+    envVars:
+      - fromGroup: provenant-shared
+      - key: DEMO_STORE_PORT
+        value: "10000"

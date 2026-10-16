@@ -24,6 +24,7 @@
     "@provenant/paypal": "workspace:*",
     "@provenant/adjudicator": "workspace:*",
     "@provenant/llm": "workspace:*",
-    "ulid": "^3.0.0"
+    "ulid": "^3.0.0",
+    "@fastify/rate-limit": "^10.3.0"
   }
 }

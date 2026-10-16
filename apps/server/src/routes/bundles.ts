@@ -335,6 +335,7 @@ export async function bundleRoutes(app: FastifyInstance, deps: BundleRouteDeps):
   r.get(
     '/v1/bundles/:id/receipt',
     {
+      config: { rateLimit: { max: 60, timeWindow: '1 minute' } },
       schema: {
         tags: ['bundles'],
         summary: 'Buyer-readable mandate receipt (HTML)',
@@ -353,6 +354,7 @@ export async function bundleRoutes(app: FastifyInstance, deps: BundleRouteDeps):
   r.get(
     '/v1/blobs/:sha256',
     {
+      config: { rateLimit: { max: 600, timeWindow: '1 minute' } },
       schema: {
         tags: ['bundles'],
         summary: 'Content-addressed blob (e.g. offer snapshot image)',

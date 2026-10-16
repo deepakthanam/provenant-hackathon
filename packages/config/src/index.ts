@@ -32,6 +32,7 @@ export const envSchema = z.object({
   DATABASE_URL: z.string().default('postgres://provenant:provenant@localhost:5433/provenant'),
   DATABASE_MODE: z.enum(['auto', 'embedded', 'external']).default('auto'),
   PUBLIC_BASE_URL: z.string().default('http://localhost:4000'),
+  CONSOLE_PASSWORD: optionalString,
   CONSOLE_PUBLIC_URL: z.string().default('http://localhost:3000'),
   DEMO_STORE_URL: z.string().default('http://localhost:4100'),
   DATA_DIR: z.string().optional(),
