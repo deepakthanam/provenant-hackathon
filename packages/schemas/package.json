@@ -1,0 +1,16 @@
+{
+  "name": "@provenant/schemas",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run --root ../.. --project @provenant/schemas"
+  },
+  "dependencies": {
+    "zod": "^4.1.5"
+  }
+}

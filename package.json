@@ -17,7 +17,7 @@
     "db:generate": "pnpm --filter @provenant/db generate",
     "db:migrate": "tsx scripts/migrate.ts",
     "keygen": "tsx scripts/keygen.ts",
-    "test": "turbo run test",
+    "test": "vitest run",
     "typecheck": "turbo run typecheck && tsc -p .",
     "lint": "biome check .",
     "lint:fix": "biome check --write ."
@@ -32,6 +32,7 @@
   },
   "dependencies": {
     "@provenant/config": "workspace:*",
-    "@provenant/db": "workspace:*"
+    "@provenant/db": "workspace:*",
+    "@provenant/evidence": "workspace:*"
   }
 }

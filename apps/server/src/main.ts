@@ -1,20 +1,25 @@
-import { loadEnv } from '@provenant/config';
+import { join } from 'node:path';
+import { findRepoRoot, loadEnv } from '@provenant/config';
 import { createDb } from '@provenant/db';
+import { seedDemo } from '@provenant/db/seed';
+import { LocalBlobStore, Signer } from '@provenant/evidence';
 import { buildApp } from './app';
 
 const env = loadEnv();
 const db = createDb(env.DATABASE_URL);
+const dataDir = env.DATA_DIR ?? join(findRepoRoot(), 'data');
+
+await seedDemo(db, {
+  admin: env.PROVENANT_ADMIN_API_KEY,
+  platform: env.PROVENANT_PLATFORM_API_KEY,
+  merchant: env.PROVENANT_MERCHANT_API_KEY,
+});
 
 const app = await buildApp({
   env,
-  pingDb: async () => {
-    try {
-      await db.$client.query('select 1');
-      return true;
-    } catch {
-      return false;
-    }
-  },
+  db,
+  signer: Signer.fromB64(env.PROVENANT_SIGNING_PRIVATE_KEY),
+  blobStore: new LocalBlobStore(dataDir),
 });
 
 const close = async () => {

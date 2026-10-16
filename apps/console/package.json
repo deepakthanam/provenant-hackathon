@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "tsx scripts/next.ts start",
     "typecheck": "tsc -p . --noEmit",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --root ../.. --project @provenant/console"
   },
   "dependencies": {
     "@provenant/config": "workspace:*",

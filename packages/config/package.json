@@ -8,7 +8,7 @@
   },
   "scripts": {
     "typecheck": "tsc -p .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --root ../.. --project @provenant/config"
   },
   "dependencies": {
     "dotenv": "^17.0.0",

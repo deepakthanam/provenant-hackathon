@@ -7,7 +7,7 @@
     "dev": "tsx watch --clear-screen=false src/main.ts",
     "start": "tsx src/main.ts",
     "typecheck": "tsc -p .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --root ../.. --project @provenant/demo-store"
   },
   "dependencies": {
     "@provenant/config": "workspace:*",

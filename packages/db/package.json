@@ -6,12 +6,14 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema.ts",
-    "./embedded": "./src/embedded.ts"
+    "./embedded": "./src/embedded.ts",
+    "./testing": "./src/testing.ts",
+    "./seed": "./src/seed.ts"
   },
   "scripts": {
     "generate": "drizzle-kit generate",
     "typecheck": "tsc -p .",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --root ../.. --project @provenant/db"
   },
   "dependencies": {
     "@provenant/config": "workspace:*",

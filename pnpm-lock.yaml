@@ -14,6 +14,9 @@ importers:
       '@provenant/db':
         specifier: workspace:*
         version: link:packages/db
+      '@provenant/evidence':
+        specifier: workspace:*
+        version: link:packages/evidence
     devDependencies:
       '@biomejs/biome':
         specifier: 2.5.15
@@ -88,6 +91,15 @@ importers:
       '@provenant/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@provenant/evidence':
+        specifier: workspace:*
+        version: link:../../packages/evidence
+      '@provenant/schemas':
+        specifier: workspace:*
+        version: link:../../packages/schemas
+      drizzle-orm:
+        specifier: ^0.44.0
+        version: 0.44.7(@types/pg@8.23.1)(pg@8.23.1)
       fastify:
         specifier: ^5.5.0
         version: 5.12.5
@@ -128,6 +140,27 @@ importers:
       drizzle-kit:
         specifier: ^0.31.0
         version: 0.31.11
+
+  packages/evidence:
+    dependencies:
+      '@provenant/db':
+        specifier: workspace:*
+        version: link:../db
+      '@provenant/schemas':
+        specifier: workspace:*
+        version: link:../schemas
+      drizzle-orm:
+        specifier: ^0.44.0
+        version: 0.44.7(@types/pg@8.23.1)(pg@8.23.1)
+      ulid:
+        specifier: ^3.0.0
+        version: 3.0.2
+
+  packages/schemas:
+    dependencies:
+      zod:
+        specifier: ^4.1.5
+        version: 4.6.5
 
 packages:
 
@@ -2043,6 +2076,10 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
+  ulid@3.0.2:
+    resolution: {integrity: sha512-yu26mwteFYzBAot7KVMqFGCVpsF6g8wXfJzQUHvu1no3+rRRSFcSV2nKeYvNPLD2J4b08jYBDhHUjeH0ygIl9w==}
+    hasBin: true
+
   undici-types@7.24.6:
     resolution: {integrity: sha512-WRNW+sJgj5OBN4/0JpHFqtqzhpbnV0GuB+OozA9gCL7a993SmU+1JBZCzLNxYsbMfIeDL+lTsphD5jN5N+n0zg==}
 
@@ -3582,6 +3619,8 @@ snapshots:
       '@turbo/windows-arm64': 2.11.6
 
   typescript@5.9.3: {}
+
+  ulid@3.0.2: {}
 
   undici-types@7.24.6: {}
 

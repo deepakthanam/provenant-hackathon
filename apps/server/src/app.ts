@@ -1,7 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import type { Env } from '@provenant/config';
+import type { Db } from '@provenant/db';
+import { type BlobStore, BundleStore, type Signer } from '@provenant/evidence';
 import Fastify, { type FastifyInstance } from 'fastify';
 import {
   jsonSchemaTransform,
@@ -10,21 +13,35 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import { createAuthenticator } from './auth';
+import { registerErrorHandler } from './errors';
+import { bundleRoutes } from './routes/bundles';
 
 export interface AppDeps {
   env: Env;
-  /** Returns true when the database answers. Injected so tests can run without Postgres. */
-  pingDb: () => Promise<boolean>;
+  db: Db;
+  signer: Signer;
+  blobStore: BlobStore;
+  /** Defaults to `select 1` against `db`; injectable so tests can simulate an outage. */
+  pingDb?: () => Promise<boolean>;
 }
 
 export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const app = Fastify({
     logger: deps.env.NODE_ENV === 'test' ? false : { level: 'info' },
-    bodyLimit: 5 * 1024 * 1024,
+    bodyLimit: 6 * 1024 * 1024,
+    genReqId: (req) => {
+      const given = req.headers['x-request-id'];
+      return typeof given === 'string' && /^[\w.-]{1,64}$/.test(given) ? given : randomUUID();
+    },
   }).withTypeProvider<ZodTypeProvider>();
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
+  app.addHook('onSend', async (req, reply) => {
+    reply.header('x-request-id', req.id);
+  });
+  registerErrorHandler(app);
 
   await app.register(cors, { origin: [deps.env.CONSOLE_PUBLIC_URL] });
   await app.register(swagger, {
@@ -34,13 +51,22 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
         description: 'Evidence bundles and dispute adjudication for AI-agent purchases on PayPal.',
         version: '0.1.0',
       },
-      components: {
-        securitySchemes: { bearer: { type: 'http', scheme: 'bearer' } },
-      },
+      components: { securitySchemes: { bearer: { type: 'http', scheme: 'bearer' } } },
     },
     transform: jsonSchemaTransform,
   });
   await app.register(swaggerUi, { routePrefix: '/docs' });
+
+  const pingDb =
+    deps.pingDb ??
+    (async () => {
+      try {
+        await deps.db.$client.query('select 1');
+        return true;
+      } catch {
+        return false;
+      }
+    });
 
   app.get(
     '/healthz',
@@ -55,10 +81,13 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       },
     },
     async (_req, reply) => {
-      if (!(await deps.pingDb())) return reply.code(503).send({ status: 'degraded', db: 'down' });
+      if (!(await pingDb())) return reply.code(503).send({ status: 'degraded', db: 'down' });
       return { status: 'ok' as const, db: 'ok' as const, paypal_mode: deps.env.PAYPAL_MODE };
     },
   );
+
+  const store = new BundleStore(deps.db, deps.signer, deps.blobStore);
+  await app.register(bundleRoutes, { store, authenticate: createAuthenticator(deps.db) });
 
   return app;
 }

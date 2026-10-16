@@ -34,6 +34,7 @@ export const envSchema = z.object({
   PUBLIC_BASE_URL: z.string().default('http://localhost:4000'),
   CONSOLE_PUBLIC_URL: z.string().default('http://localhost:3000'),
   DEMO_STORE_URL: z.string().default('http://localhost:4100'),
+  DATA_DIR: z.string().optional(),
 
   PAYPAL_MODE: z.enum(['mock', 'sandbox']).default('mock'),
   PAYPAL_CLIENT_ID: optionalString,
@@ -45,6 +46,10 @@ export const envSchema = z.object({
 
   PROVENANT_SIGNING_PRIVATE_KEY: optionalString,
   PROVENANT_SIGNING_PUBLIC_KEY: optionalString,
+
+  PROVENANT_ADMIN_API_KEY: optionalString,
+  PROVENANT_PLATFORM_API_KEY: optionalString,
+  PROVENANT_MERCHANT_API_KEY: optionalString,
 
   LLM_PROVIDER: z.enum(['mock', 'anthropic', 'bedrock']).default('mock'),
   LLM_MODEL: z.string().default('claude-sonnet-5-5'),
@@ -66,7 +71,7 @@ export function loadEnv(opts: { reload?: boolean } = {}): Env {
   if (cached && !opts.reload) return cached;
   const root = findRepoRoot();
   const file = join(root, '.env');
-  if (existsSync(file)) loadDotenv({ path: file, quiet: true });
+  if (existsSync(file)) loadDotenv({ path: file, quiet: true, override: opts.reload === true });
   // Strip inline comments like `mock   # mock | sandbox` that some editors leave behind.
   const raw: Record<string, string | undefined> = {};
   for (const [k, v] of Object.entries(process.env)) raw[k] = v?.replace(/\s+#.*$/, '');
