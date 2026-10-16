@@ -50,14 +50,14 @@ try {
 
   const approve = read.links?.find((l) => l.rel === 'payer-action' || l.rel === 'approve')?.href;
   step(`Approve as the sandbox buyer:\n  ${approve}`);
-  const deadline = Date.now() + 5 * 60_000;
+  const deadline = Date.now() + 15 * 60_000;
   let status = read.status;
   while (status !== 'APPROVED' && Date.now() < deadline) {
     await new Promise((r) => setTimeout(r, 4000));
     status = (await pp.getOrder(order.id)).status;
     process.stdout.write(`  status ${status}\r`);
   }
-  if (status !== 'APPROVED') throw new Error('order was not approved within 5 minutes');
+  if (status !== 'APPROVED') throw new Error('order was not approved within 15 minutes');
 
   step('Capture');
   const captured = await pp.captureOrder(order.id);
