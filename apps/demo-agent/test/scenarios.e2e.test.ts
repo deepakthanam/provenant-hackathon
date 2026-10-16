@@ -1,7 +1,7 @@
 import { verdicts } from '@provenant/db';
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { runScenario, SCENARIOS, SPECS } from '../src/scenarios';
+import { runScenario, SCENARIOS, SPECS, settleScenario } from '../src/scenarios';
 import { type Stack, startStack } from './stack';
 
 let s: Stack;
@@ -16,9 +16,18 @@ const quiet = () => {};
 
 describe('the five scenarios end to end (mock PayPal, mock LLM, webhooks over HTTP)', () => {
   for (const name of SCENARIOS) {
-    it(`${name} → ${SPECS[name].expect.verdict} / ${SPECS[name].expect.action}`, async () => {
+    const spec = SPECS[name];
+    it(`${name} → ${spec.expect.verdict} / ${spec.expect.action} → PayPal ${spec.settle.final.status} ${spec.settle.final.outcome ?? ''}`, async () => {
       const r = await runScenario(s.env, name, quiet);
-      expect({ verdict: r.verdict, action: r.action }).toEqual(SPECS[name].expect);
+      expect({ verdict: r.verdict, action: r.action }).toEqual(spec.expect);
+      const settled = await settleScenario(s.env, r, quiet);
+      expect({ status: settled.status, outcome: settled.outcome }).toEqual({
+        status: spec.settle.final.status,
+        outcome: spec.settle.final.outcome,
+      });
+      if (spec.settle.final.refunded) expect(settled.refunded).toBe(spec.settle.final.refunded);
+      expect(settled.liability).toBe(spec.settle.final.liability ?? null);
+      expect(settled.ok).toBe(true);
     });
   }
 

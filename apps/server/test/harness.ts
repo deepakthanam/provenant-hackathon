@@ -24,6 +24,7 @@ export async function createHarness(
     pingDb?: () => Promise<boolean>;
     webhookSink?: WebhookSink;
     paypal?: (mock: MockPayPal) => PayPalClient;
+    envOverrides?: Record<string, string>;
   } = {},
 ): Promise<Harness> {
   const tdb = await createTestDatabase(inject('databaseUrl'));
@@ -33,7 +34,7 @@ export async function createHarness(
     merchant: generateApiKey('merchant'),
   };
   await seedDemo(tdb.db, keys);
-  const env = envSchema.parse({ NODE_ENV: 'test' });
+  const env = envSchema.parse({ NODE_ENV: 'test', ...opts.envOverrides });
   const mock = new MockPayPal({
     db: tdb.db,
     baseUrl: 'http://localhost/mock-paypal',

@@ -1,11 +1,13 @@
 import type { Db } from '@provenant/db';
 import { actions, disputeEvents, disputes, verdicts } from '@provenant/db';
+import type { PayPalClient } from '@provenant/paypal';
 import { ErrorResponse } from '@provenant/schemas';
 import { asc, desc, eq } from 'drizzle-orm';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { requireKind } from '../auth';
+import { type ActionExecutor, ActionOverride } from '../disputes/actions';
 import type { AdjudicationService, VerdictRow } from '../disputes/adjudication';
 import type { DisputeIntake } from '../disputes/intake';
 import { HttpError } from '../errors';
@@ -126,11 +128,23 @@ export async function disputeRoutes(
     db: Db;
     intake: DisputeIntake;
     adjudication: AdjudicationService;
+    executor: ActionExecutor;
+    /** Sandbox-only PayPal helpers are exposed when PayPal is the mock or the sandbox. */
+    sandboxHelpers: boolean;
+    paypal: PayPalClient;
     authenticate: (req: FastifyRequest) => Promise<void>;
   },
 ): Promise<void> {
   const r = app.withTypeProvider<ZodTypeProvider>();
   r.addHook('onRequest', opts.authenticate);
+  // Body-less POSTs (approve, sync) may still carry content-type: application/json.
+  r.addContentTypeParser('application/json', { parseAs: 'string' }, (_req, body, done) => {
+    try {
+      done(null, String(body).trim() === '' ? undefined : JSON.parse(String(body)));
+    } catch (e) {
+      done(Object.assign(e as Error, { statusCode: 400 }), undefined);
+    }
+  });
 
   r.get(
     '/v1/disputes',
@@ -288,6 +302,128 @@ export async function disputeRoutes(
         .send(pdf);
     },
   );
+
+  const ActionView = z.object({
+    id: z.string(),
+    kind: z.string(),
+    status: z.string(),
+    request_id: z.string().nullable(),
+    debug_id: z.string().nullable(),
+  });
+
+  r.post(
+    '/v1/disputes/:id/approve',
+    {
+      schema: {
+        tags: ['disputes'],
+        summary: 'Approve the latest verdict and execute its PayPal call (or an override)',
+        description:
+          'Re-fetches the dispute and only calls PayPal if the needed HATEOAS link is still offered; otherwise records ACTION_NOT_AVAILABLE. Files (the evidence PDF) are sent as multipart.',
+        security,
+        params: Params,
+        body: z
+          .object({
+            approved_by: z.string().min(1).max(100).optional(),
+            action_override: ActionOverride.optional(),
+          })
+          .nullish(),
+        response: {
+          200: z.object({ verdict: VerdictView, action: ActionView }),
+          ...errors,
+          502: ErrorResponse,
+        },
+      },
+    },
+    async (req) => {
+      const p = requireKind(req, 'merchant', 'admin');
+      const out = await opts.executor.approve(req.params.id, {
+        approvedBy: req.body?.approved_by ?? p.keyId,
+        override: req.body?.action_override,
+      });
+      return {
+        verdict: verdictView(out.verdict),
+        action: {
+          id: out.action.id,
+          kind: out.action.kind,
+          status: out.action.status,
+          request_id: out.action.requestId,
+          debug_id: out.action.debugId,
+        },
+      };
+    },
+  );
+
+  r.post(
+    '/v1/disputes/:id/reject',
+    {
+      schema: {
+        tags: ['disputes'],
+        summary: 'Reject the latest verdict: no PayPal call is made',
+        security,
+        params: Params,
+        body: z.object({
+          reason: z.string().min(1).max(500),
+          rejected_by: z.string().min(1).max(100).optional(),
+        }),
+        response: { 200: z.object({ verdict: VerdictView }), ...errors },
+      },
+    },
+    async (req) => {
+      const p = requireKind(req, 'merchant', 'admin');
+      const v = await opts.executor.reject(req.params.id, {
+        reason: req.body.reason,
+        rejectedBy: req.body.rejected_by ?? p.keyId,
+      });
+      return { verdict: verdictView(v) };
+    },
+  );
+
+  if (opts.sandboxHelpers) {
+    r.post(
+      '/v1/disputes/:id/sandbox/adjudicate',
+      {
+        schema: {
+          tags: ['sandbox'],
+          summary:
+            "Sandbox only: settle the dispute as PayPal's agents would (needs UNDER_REVIEW and the adjudicate link)",
+          security,
+          params: Params,
+          body: z.object({ outcome: z.enum(['BUYER_FAVOR', 'SELLER_FAVOR']) }),
+          response: {
+            200: z.object({ status: z.string(), outcome: z.string().nullable() }),
+            ...errors,
+            502: ErrorResponse,
+          },
+        },
+      },
+      async (req) => {
+        requireKind(req, 'merchant', 'admin');
+        await opts.paypal.sandboxAdjudicate(req.params.id, req.body.outcome);
+        const { dispute } = await opts.intake.refreshDispute(req.params.id);
+        return { status: dispute.status, outcome: dispute.dispute_outcome?.outcome_code ?? null };
+      },
+    );
+
+    r.post(
+      '/v1/disputes/:id/sandbox/require-evidence',
+      {
+        schema: {
+          tags: ['sandbox'],
+          summary: 'Sandbox only: move UNDER_REVIEW back to waiting for seller or buyer evidence',
+          security,
+          params: Params,
+          body: z.object({ action: z.enum(['SELLER_EVIDENCE', 'BUYER_EVIDENCE']) }),
+          response: { 200: z.object({ status: z.string() }), ...errors, 502: ErrorResponse },
+        },
+      },
+      async (req) => {
+        requireKind(req, 'merchant', 'admin');
+        await opts.paypal.sandboxRequireEvidence(req.params.id, req.body.action);
+        const { dispute } = await opts.intake.refreshDispute(req.params.id);
+        return { status: dispute.status };
+      },
+    );
+  }
 
   r.post(
     '/v1/disputes/sync',

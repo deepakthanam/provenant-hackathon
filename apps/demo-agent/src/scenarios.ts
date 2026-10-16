@@ -12,6 +12,11 @@ interface ScenarioSpec {
   tamper?: boolean;
   dispute: { reason: DisputeReason; message: string; attachPhoto?: boolean };
   expect: { verdict: string; action: string };
+  /** After approval: what the scenario does next and the PayPal state it should end in. */
+  settle: {
+    followUp?: 'seller_wins' | 'buyer_accepts_offer';
+    final: { status: string; outcome: string | null; refunded?: string; liability?: string };
+  };
 }
 
 export const SPECS: Record<ScenarioName, ScenarioSpec> = {
@@ -27,6 +32,7 @@ export const SPECS: Record<ScenarioName, ScenarioSpec> = {
       message: "I never wanted these. The agent bought them and I don't like them.",
     },
     expect: { verdict: 'WITHIN_MANDATE', action: 'provide_evidence' },
+    settle: { followUp: 'seller_wins', final: { status: 'RESOLVED', outcome: 'RESOLVED_SELLER_FAVOUR' } },
   },
   overspend: {
     title: 'Overspend: $50 cap, no confirmation, agent buys $65',
@@ -38,6 +44,9 @@ export const SPECS: Record<ScenarioName, ScenarioSpec> = {
     },
     dispute: { reason: 'UNAUTHORISED', message: 'I set a $50 limit. The agent spent $65 without asking me.' },
     expect: { verdict: 'AGENT_OUT_OF_BOUNDS', action: 'accept_claim' },
+    settle: {
+      final: { status: 'RESOLVED', outcome: 'RESOLVED_BUYER_FAVOUR', refunded: '65.00', liability: '65.00' },
+    },
   },
   'wrong-item': {
     title: 'Wrong item: snapshot shows black, buyer photo shows blue',
@@ -54,6 +63,7 @@ export const SPECS: Record<ScenarioName, ScenarioSpec> = {
       attachPhoto: true,
     },
     expect: { verdict: 'MERCHANT_MISREPRESENTED', action: 'accept_claim' },
+    settle: { final: { status: 'RESOLVED', outcome: 'RESOLVED_BUYER_FAVOUR', refunded: '84.00' } },
   },
   ambiguous: {
     title: 'Ambiguous: mandate "running shoes", listing "trail/road hybrid", buyer wanted road',
@@ -68,6 +78,10 @@ export const SPECS: Record<ScenarioName, ScenarioSpec> = {
       message: 'I wanted road running shoes; these are trail/road hybrids.',
     },
     expect: { verdict: 'SHARED_FAULT', action: 'make_offer' },
+    settle: {
+      followUp: 'buyer_accepts_offer',
+      final: { status: 'RESOLVED', outcome: 'ACCEPTED', refunded: '36.00' },
+    },
   },
   tampered: {
     title: 'Tampered: a sealed ledger row is edited in the database',
@@ -78,6 +92,7 @@ export const SPECS: Record<ScenarioName, ScenarioSpec> = {
       message: 'The shoes are the wrong colour.',
     },
     expect: { verdict: 'INSUFFICIENT_EVIDENCE', action: 'none' },
+    settle: { final: { status: 'WAITING_FOR_SELLER_RESPONSE', outcome: null } },
   },
 };
 
@@ -223,4 +238,78 @@ export async function runScenario(
     ok,
     reasons: v.reasons.map((r) => r.text),
   };
+}
+
+export interface SettleResult {
+  approved: boolean;
+  status: string;
+  outcome: string | null;
+  refunded: string | null;
+  liability: string | null;
+  ok: boolean;
+}
+
+/**
+ * Approval and what follows: the merchant approves the planned call (Provenant executes it against
+ * PayPal), then PayPal's side plays out: a sandbox adjudication, or the buyer accepting the offer.
+ */
+export async function settleScenario(
+  env: Env,
+  r: ScenarioResult,
+  log: (s: string) => void = console.log,
+): Promise<SettleResult> {
+  const spec = SPECS[r.name];
+  const buyer = createRemoteBuyer(env)!;
+  let approved = false;
+  if (r.action !== 'none') {
+    const out = await api<{ action: { kind: string; status: string; request_id: string | null } }>(
+      env,
+      'POST',
+      `/v1/disputes/${r.disputeId}/approve`,
+      {
+        approved_by: 'scenario-runner',
+      },
+    );
+    approved = true;
+    log(
+      `  ✓ approved → ${out.action.kind} ${out.action.status} (PayPal-Request-Id ${out.action.request_id})`,
+    );
+  } else {
+    log('  · nothing to approve: left for human review');
+  }
+  if (spec.settle.followUp === 'seller_wins') {
+    await api(env, 'POST', `/v1/disputes/${r.disputeId}/sandbox/adjudicate`, { outcome: 'SELLER_FAVOR' });
+    log('  ✓ PayPal (sandbox adjudicate) settles for the seller');
+  } else if (spec.settle.followUp === 'buyer_accepts_offer') {
+    await buyer.acceptOffer(r.disputeId);
+    await api(env, 'POST', '/v1/disputes/sync');
+    log('  ✓ buyer accepts the partial-refund offer');
+  }
+  const d = await api<{
+    status: string;
+    paypal: { dispute_outcome?: { outcome_code: string; amount_refunded?: { value: string } } };
+  }>(env, 'GET', `/v1/disputes/${r.disputeId}`);
+  const liability = await api<{ entries: Array<{ dispute_id: string; amount: { value: string } }> }>(
+    env,
+    'GET',
+    '/v1/liability',
+  );
+  const mine = liability.entries.find((e) => e.dispute_id === r.disputeId);
+  const result = {
+    approved,
+    status: d.status,
+    outcome: d.paypal.dispute_outcome?.outcome_code ?? null,
+    refunded: d.paypal.dispute_outcome?.amount_refunded?.value ?? null,
+    liability: mine?.amount.value ?? null,
+  };
+  const f = spec.settle.final;
+  const ok =
+    result.status === f.status &&
+    result.outcome === f.outcome &&
+    (f.refunded === undefined || result.refunded === f.refunded) &&
+    (f.liability ?? null) === result.liability;
+  log(
+    `  ${ok ? '✓' : '✘'} PayPal: ${result.status}${result.outcome ? ` ${result.outcome}` : ''}${result.refunded ? `, refunded ${result.refunded}` : ''}${result.liability ? `; liability ${result.liability} → ${r.bundleId ? 'demo-agent' : ''}` : ''}`,
+  );
+  return { ...result, ok };
 }

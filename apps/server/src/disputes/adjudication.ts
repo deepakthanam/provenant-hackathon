@@ -154,12 +154,9 @@ export class AdjudicationService {
     const latest = await this.latestVerdict(disputeId);
     if (latest && !opts.force) {
       if (latest.inputsHash === hash) return { verdict: latest, created: false };
-      const prev = (latest.inputs as { dispute?: Dispute }).dispute;
-      const samePhase =
-        prev?.status === input.dispute.status &&
-        prev?.dispute_life_cycle_stage === input.dispute.dispute_life_cycle_stage;
-      if (latest.status !== 'PENDING' && (samePhase || input.dispute.status === 'RESOLVED'))
+      if (latest.status !== 'PENDING' && !this.newRequestFromPayPal(latest, input.dispute)) {
         return { verdict: latest, created: false };
+      }
     }
 
     const result = await adjudicate(input, this.llm);
@@ -173,7 +170,27 @@ export class AdjudicationService {
       },
       'dispute adjudicated',
     );
+    if (this.onVerdict) await this.onVerdict(verdict);
     return { verdict, created: true };
+  }
+
+  /** Set by the app: runs after a new verdict is stored (AUTO_ACTION executes from here). */
+  onVerdict?: (v: VerdictRow) => Promise<void>;
+
+  /**
+   * After a decision has been acted on, the dispute is only re-adjudicated when PayPal asks the
+   * seller for something new: the stage moved (e.g. INQUIRY → CHARGEBACK) or the dispute came back
+   * to WAITING_FOR_SELLER_RESPONSE. Our own action's consequences (UNDER_REVIEW, RESOLVED) are not.
+   */
+  private newRequestFromPayPal(latest: VerdictRow, now: Dispute): boolean {
+    if (now.status === 'RESOLVED') return false;
+    const prev = (latest.inputs as { dispute?: Dispute }).dispute;
+    if (prev?.dispute_life_cycle_stage !== now.dispute_life_cycle_stage) return true;
+    return (
+      now.status === 'WAITING_FOR_SELLER_RESPONSE' &&
+      latest.status === 'EXECUTED' &&
+      prev?.status !== now.status
+    );
   }
 
   private async store(

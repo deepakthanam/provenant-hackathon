@@ -17,18 +17,21 @@ import {
 } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { createAuthenticator } from './auth';
+import { ActionExecutor } from './disputes/actions';
 import { AdjudicationService } from './disputes/adjudication';
 import { DisputeIntake } from './disputes/intake';
 import { registerErrorHandler } from './errors';
 import { bundleRoutes } from './routes/bundles';
 import { devRoutes } from './routes/dev';
 import { disputeRoutes } from './routes/disputes';
+import { liabilityRoutes } from './routes/liability';
 import { webhookRoutes } from './routes/webhooks';
 
 declare module 'fastify' {
   interface FastifyInstance {
     intake: DisputeIntake;
     adjudication: AdjudicationService;
+    executor: ActionExecutor;
   }
 }
 
@@ -142,7 +145,40 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   app.decorate('intake', intake);
   app.decorate('adjudication', adjudication);
   await app.register(webhookRoutes, { intake });
-  await app.register(disputeRoutes, { db: deps.db, intake, adjudication, authenticate });
+  const executor = new ActionExecutor({
+    db: deps.db,
+    paypal: deps.paypal,
+    adjudication,
+    intake,
+    log: app.log,
+  });
+  app.decorate('executor', executor);
+  if (deps.env.AUTO_ACTION) {
+    // Act without a human, but only on a confident, actionable verdict.
+    adjudication.onVerdict = async (v) => {
+      const plan = v.recommendedAction as { kind: string; available: boolean };
+      if (v.verdict === 'INSUFFICIENT_EVIDENCE' || plan.kind === 'none' || !plan.available) return;
+      await executor
+        .approve(v.disputeId, { approvedBy: 'auto' })
+        .catch((e: unknown) =>
+          app.log.warn(
+            { disputeId: v.disputeId, err: e instanceof Error ? e.message : String(e) },
+            'auto action not executed',
+          ),
+        );
+    };
+  }
+  await app.register(disputeRoutes, {
+    db: deps.db,
+    intake,
+    adjudication,
+    executor,
+    paypal: deps.paypal,
+    // The live API rejects sandbox-only calls; expose the helpers for the mock and the sandbox only.
+    sandboxHelpers: deps.paypal.mode === 'mock' || deps.env.PAYPAL_API_BASE.includes('sandbox'),
+    authenticate,
+  });
+  await app.register(liabilityRoutes, { db: deps.db, authenticate });
   if (deps.env.NODE_ENV !== 'production' && deps.paypal.mode === 'mock') {
     await app.register(devRoutes, { db: deps.db, authenticate });
   }
