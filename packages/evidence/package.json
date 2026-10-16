@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./crypto": "./src/crypto.ts",
-    "./canonical": "./src/canonical.ts"
+    "./canonical": "./src/canonical.ts",
+    "./report": "./src/report.ts"
   },
   "scripts": {
     "typecheck": "tsc -p .",
@@ -16,6 +17,10 @@
     "@provenant/db": "workspace:*",
     "@provenant/schemas": "workspace:*",
     "drizzle-orm": "^0.44.0",
-    "ulid": "^3.0.0"
+    "ulid": "^3.0.0",
+    "pdfkit": "^0.17.2"
+  },
+  "devDependencies": {
+    "@types/pdfkit": "^0.17.0"
   }
 }

@@ -21,6 +21,9 @@
     "@provenant/evidence": "workspace:*",
     "@provenant/schemas": "workspace:*",
     "drizzle-orm": "^0.44.0",
-    "@provenant/paypal": "workspace:*"
+    "@provenant/paypal": "workspace:*",
+    "@provenant/adjudicator": "workspace:*",
+    "@provenant/llm": "workspace:*",
+    "ulid": "^3.0.0"
   }
 }

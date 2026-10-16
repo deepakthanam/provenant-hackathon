@@ -213,6 +213,16 @@ export class BundleStore {
     return u?.publicKey ?? null;
   }
 
+  /** Stores a blob (e.g. a buyer's dispute photo) content-addressed, for reports and replay. */
+  async putBlob(bytes: Uint8Array, contentType: string): Promise<{ sha256: string; path: string }> {
+    const stored = await this.blobStore.put(bytes);
+    await this.db
+      .insert(blobsTable)
+      .values({ sha256: stored.sha256, path: stored.path, contentType, size: stored.size })
+      .onConflictDoNothing();
+    return { sha256: stored.sha256, path: stored.path };
+  }
+
   async getBlob(sha256: string): Promise<{ bytes: Uint8Array; contentType: string } | null> {
     const [meta] = await this.db.select().from(blobsTable).where(eq(blobsTable.sha256, sha256));
     const bytes = await this.blobStore.get(sha256);

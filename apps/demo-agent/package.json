@@ -4,12 +4,14 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./src/purchase.ts"
+    ".": "./src/purchase.ts",
+    "./scenarios": "./src/scenarios.ts"
   },
   "scripts": {
     "agent": "tsx src/cli.ts",
     "typecheck": "tsc -p .",
-    "test": "vitest run --root ../.. --project @provenant/demo-agent"
+    "test": "vitest run --root ../.. --project @provenant/demo-agent",
+    "scenario": "tsx src/scenario-cli.ts"
   },
   "dependencies": {
     "@paypal/agent-toolkit": "1.11.0",

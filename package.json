@@ -23,7 +23,10 @@
     "lint:fix": "biome check --write .",
     "sandbox:check": "tsx scripts/sandbox-check.ts",
     "dev:stop": "tsx scripts/dev-stop.ts",
-    "agent": "pnpm --filter @provenant/demo-agent agent"
+    "agent": "pnpm --filter @provenant/demo-agent agent",
+    "scenario": "pnpm --filter @provenant/demo-agent scenario",
+    "demo": "pnpm --filter @provenant/demo-agent scenario all",
+    "replay": "tsx scripts/replay.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
@@ -37,6 +40,9 @@
     "@provenant/config": "workspace:*",
     "@provenant/db": "workspace:*",
     "@provenant/evidence": "workspace:*",
-    "@provenant/paypal": "workspace:*"
+    "@provenant/paypal": "workspace:*",
+    "@provenant/adjudicator": "workspace:*",
+    "@provenant/llm": "workspace:*",
+    "drizzle-orm": "^0.44.0"
   }
 }

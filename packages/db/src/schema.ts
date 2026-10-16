@@ -149,6 +149,8 @@ export const verdicts = pgTable(
     promptHash: text('prompt_hash'),
     inputsHash: text('inputs_hash').notNull(),
     rawModelOutput: text('raw_model_output'),
+    /** Model notes, consistency flag, dropped (uncited) differences and any error. */
+    modelMeta: jsonb('model_meta'),
     inputs: jsonb('inputs').notNull(),
     recommendedAction: jsonb('recommended_action').notNull(),
     // PENDING | APPROVED | REJECTED | EXECUTED | FAILED | SUPERSEDED

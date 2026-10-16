@@ -15,6 +15,13 @@
       "when": 1792136822500,
       "tag": "0001_mock_paypal",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792139485915,
+      "tag": "0002_verdict_model_meta",
+      "breakpoints": true
     }
   ]
 }

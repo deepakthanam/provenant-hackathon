@@ -5,6 +5,7 @@ import swaggerUi from '@fastify/swagger-ui';
 import type { Env } from '@provenant/config';
 import type { Db } from '@provenant/db';
 import { type BlobStore, BundleStore, type Signer } from '@provenant/evidence';
+import type { LlmProvider } from '@provenant/llm';
 import { MOCK_PAYPAL_PREFIX, MockPayPal, type PayPalClient } from '@provenant/paypal';
 import { mockPayPalRoutes } from '@provenant/paypal/mock-routes';
 import Fastify, { type FastifyInstance } from 'fastify';
@@ -16,15 +17,18 @@ import {
 } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { createAuthenticator } from './auth';
+import { AdjudicationService } from './disputes/adjudication';
 import { DisputeIntake } from './disputes/intake';
 import { registerErrorHandler } from './errors';
 import { bundleRoutes } from './routes/bundles';
+import { devRoutes } from './routes/dev';
 import { disputeRoutes } from './routes/disputes';
 import { webhookRoutes } from './routes/webhooks';
 
 declare module 'fastify' {
   interface FastifyInstance {
     intake: DisputeIntake;
+    adjudication: AdjudicationService;
   }
 }
 
@@ -34,6 +38,8 @@ export interface AppDeps {
   signer: Signer;
   blobStore: BlobStore;
   paypal: PayPalClient;
+  /** Overrides the LLM chosen from env (tests inject hostile or failing models). */
+  llm?: LlmProvider;
   /** Defaults to `select 1` against `db`; injectable so tests can simulate an outage. */
   pingDb?: () => Promise<boolean>;
 }
@@ -107,16 +113,39 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   const authenticate = createAuthenticator(deps.db);
   await app.register(bundleRoutes, { store, paypal: deps.paypal, authenticate });
 
+  const adjudication = new AdjudicationService({
+    db: deps.db,
+    store,
+    paypal: deps.paypal,
+    env: deps.env,
+    log: app.log,
+    llm: deps.llm,
+  });
   const intake = new DisputeIntake({
     db: deps.db,
     paypal: deps.paypal,
     store,
     log: app.log,
     verifySignatures: deps.paypal.mode !== 'mock',
+    // Every change PayPal reports is (re)adjudicated; identical inputs are a no-op.
+    onDisputeChanged: (id) =>
+      adjudication
+        .adjudicate(id)
+        .then(() => undefined)
+        .catch((e: unknown) =>
+          app.log.error(
+            { disputeId: id, err: e instanceof Error ? e.message : String(e) },
+            'adjudication failed',
+          ),
+        ),
   });
   app.decorate('intake', intake);
+  app.decorate('adjudication', adjudication);
   await app.register(webhookRoutes, { intake });
-  await app.register(disputeRoutes, { db: deps.db, intake, authenticate });
+  await app.register(disputeRoutes, { db: deps.db, intake, adjudication, authenticate });
+  if (deps.env.NODE_ENV !== 'production' && deps.paypal.mode === 'mock') {
+    await app.register(devRoutes, { db: deps.db, authenticate });
+  }
 
   return app;
 }

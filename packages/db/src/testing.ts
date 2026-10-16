@@ -23,11 +23,26 @@ export async function createTestDatabase(baseUrl: string): Promise<TestDatabase>
   return {
     db,
     url,
+    /** Closes this suite's pool. The databases themselves are dropped in one pass by the global setup. */
     async drop() {
       await db.$client.end();
-      await adminQuery(baseUrl, `drop database if exists ${name} with (force)`);
     },
   };
+}
+
+/** Drops every per-suite test database (run before and after the whole test run). */
+export async function dropTestDatabases(baseUrl: string): Promise<number> {
+  const client = new pg.Client({ connectionString: baseUrl });
+  await client.connect();
+  try {
+    const { rows } = await client.query<{ datname: string }>(
+      "select datname from pg_database where datname like 'pv_test_%'",
+    );
+    for (const r of rows) await client.query(`drop database if exists ${r.datname} with (force)`);
+    return rows.length;
+  } finally {
+    await client.end();
+  }
 }
 
 async function adminQuery(baseUrl: string, sql: string): Promise<void> {

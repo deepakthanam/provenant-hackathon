@@ -1,70 +1,20 @@
-import { mkdtempSync } from 'node:fs';
-import { createServer } from 'node:net';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { envSchema } from '@provenant/config';
-import { generateApiKey, seedDemo } from '@provenant/db/seed';
-import { createTestDatabase, type TestDatabase } from '@provenant/db/testing';
-import { generateKeyPairB64, LocalBlobStore, Signer } from '@provenant/evidence';
-import { HttpPayPal, MockPayPal } from '@provenant/paypal';
-import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
-import { buildStore } from '../../demo-store/src/store';
-import { buildApp } from '../../server/src/app';
+import { HttpPayPal } from '@provenant/paypal';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runPurchase } from '../src/purchase';
+import { type Stack, startStack } from './stack';
 
-async function freePort(): Promise<number> {
-  return new Promise((resolve) => {
-    const s = createServer();
-    s.listen(0, '127.0.0.1', () => {
-      const { port } = s.address() as { port: number };
-      s.close(() => resolve(port));
-    });
-  });
-}
-
-let tdb: TestDatabase;
-let server: FastifyInstance;
-let store: FastifyInstance;
-let env: ReturnType<typeof envSchema.parse>;
+let stack: Stack;
+let env: Stack['env'];
+let server: Stack['server'];
+let store: Stack['store'];
 
 beforeAll(async () => {
-  tdb = await createTestDatabase(inject('databaseUrl'));
-  const keys = {
-    admin: generateApiKey('admin'),
-    platform: generateApiKey('platform'),
-    merchant: generateApiKey('merchant'),
-  };
-  await seedDemo(tdb.db, keys);
-  const [apiPort, storePort] = [await freePort(), await freePort()];
-  const dataDir = mkdtempSync(join(tmpdir(), 'pv-agent-'));
-  env = envSchema.parse({
-    NODE_ENV: 'test',
-    PUBLIC_BASE_URL: `http://127.0.0.1:${apiPort}`,
-    DEMO_STORE_URL: `http://127.0.0.1:${storePort}`,
-    PROVENANT_PLATFORM_API_KEY: keys.platform,
-    PROVENANT_MERCHANT_API_KEY: keys.merchant,
-    DATA_DIR: dataDir,
-  });
-  server = await buildApp({
-    env,
-    db: tdb.db,
-    signer: Signer.fromB64(generateKeyPairB64().privateKey),
-    blobStore: new LocalBlobStore(dataDir),
-    paypal: new MockPayPal({ db: tdb.db, baseUrl: `${env.PUBLIC_BASE_URL}/mock-paypal` }),
-  });
-  await server.listen({ port: apiPort, host: '127.0.0.1' });
-  store = await buildStore({
-    baseUrl: env.DEMO_STORE_URL,
-    provenant: { baseUrl: env.PUBLIC_BASE_URL, apiKey: keys.merchant },
-  });
-  await store.listen({ port: storePort, host: '127.0.0.1' });
+  stack = await startStack({ webhooks: false });
+  ({ env, server, store } = stack);
 });
 
 afterAll(async () => {
-  await store?.close();
-  await server?.close();
-  await tdb?.drop();
+  await stack?.close();
 });
 
 const quiet = () => {};

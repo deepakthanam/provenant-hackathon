@@ -1,0 +1,19 @@
+{
+  "name": "@provenant/adjudicator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run --root ../.. --project @provenant/adjudicator"
+  },
+  "dependencies": {
+    "@provenant/evidence": "workspace:*",
+    "@provenant/llm": "workspace:*",
+    "@provenant/paypal": "workspace:*",
+    "@provenant/schemas": "workspace:*"
+  }
+}
