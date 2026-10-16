@@ -8,8 +8,8 @@
 | M1 Evidence store | ✅ done |
 | M2 PayPal client | ✅ done (sandbox live run pending your credentials) |
 | M3 SDK + demo store + agent | ✅ done (mock verified; sandbox path written, awaiting credentials) |
-| M4 Dispute intake | ⏭ next |
-| M5 Adjudicator | ☐ |
+| M4 Dispute intake | ✅ done |
+| M5 Adjudicator | ⏭ next |
 | M6 Actions | ☐ |
 | M7 Console | ☐ |
 | M8 MCP, Postman, docs | ☐ |
@@ -75,9 +75,22 @@ Checks: `pnpm agent "black running shoes size 10 under $90, ask me above $50" --
 
 **Not yet verified:** the sandbox path (Agent Toolkit create/pay + PATCH `custom_id`) needs your sandbox credentials and one browser approval. The `--auto-approve` Playwright helper from D2 is not built yet; approval is the printed link plus polling.
 
-## Next (M4)
+## M4: what was done
 
-`POST /webhooks/paypal` (raw body, signature verification outside mock mode, dedupe on event id, store, process). `PAYMENT.CAPTURE.COMPLETED` → `syncCapture`. `CUSTOMER.DISPUTE.*` → dispute mirror linked to its bundle. A polling fallback on `update_time_after`. Tests for duplicate webhooks and for polling picking up a dispute with webhooks disabled.
+- `DisputeIntake` (`apps/server/src/disputes/intake.ts`):
+  - **Webhooks** at `POST /webhooks/paypal`. A route-scoped parser keeps the raw body so signature verification can post it back verbatim. The signature is verified through PayPal (skipped only when the client is the mock). The event is stored in `dispute_events` keyed by the PayPal event id before any processing (`on conflict do nothing`, so a duplicate is acknowledged with 200 and ignored). Processing is serialised through an in-process queue; failures are recorded on the event row, and `resumePending()` re-queues unprocessed events at startup.
+  - `PAYMENT.CAPTURE.COMPLETED` → `syncCapture` (verified against PayPal). `recordCapture` is now idempotent under the ledger lock, so the webhook and the agent can race safely.
+  - `CUSTOMER.DISPUTE.*` → `getDispute` for full details (HATEOAS links, allowed responses) → upsert the `disputes` mirror.
+  - **Linking** uses `seller_transaction_id` (the capture) and `custom` (the `custom_id`); both must agree. The basis is stored and shown, e.g. "capture … and custom_id agree".
+  - **Polling fallback**: `pollOnce()` lists disputes with `update_time_after` = a watermark kept in `kv`, pages through `next_page_token`, records `poll:<id>:<update_time>` events (idempotent) and refreshes the changed disputes. `startPolling(DISPUTE_POLL_INTERVAL_SEC)` runs it in the background, `POST /v1/disputes/sync` triggers a pass, and an `onDisputeChanged` hook is ready for M5.
+- Read API: `GET /v1/disputes` and `GET /v1/disputes/:id` (mirror + PayPal details + event timeline), merchant/admin only.
+- README documents the cloudflared tunnel, webhook registration, and polling.
+
+Checks: a duplicate webhook gives one dispute record and one event row. Polling with webhooks disabled picks up a mock-mode dispute and links it to its bundle; a second poll is a no-op; a later change is picked up again. Also tested: forged signatures (sandbox-mode client) get a 401 and store nothing; a capture/custom_id mismatch links nothing; stored-but-unprocessed events are resumed. Live in mock mode: the agent purchased, the mock buyer opened a dispute through `/_buyer/disputes`, the webhook was delivered and processed, and the mirror shows the dispute linked by "capture … and custom_id agree". 113 tests pass.
+
+## Next (M5)
+
+Adjudicator: integrity → mandate rules → delivery rules → claim vs snapshot (LLM, with the injection guard) → deterministic decision → action planner. Plus the evidence PDF, verdict storage (model id, prompt hash, inputs hash, raw output) and `pnpm replay`. All five scenarios must give the expected verdict with the mock LLM.
 
 ## Deviations from the spec
 

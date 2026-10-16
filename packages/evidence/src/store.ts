@@ -171,11 +171,20 @@ export class BundleStore {
     return this.append(bundleId, { type: 'sealed', payload: { paypal_order_id: paypalOrderId } });
   }
 
+  /** Idempotent: recording the same capture twice (webhook and agent racing) is a no-op. */
   recordCapture(bundleId: string, paypalCaptureId: string, amount: Money): Promise<BundleRecord> {
-    return this.append(bundleId, {
-      type: 'capture_recorded',
-      payload: { paypal_capture_id: paypalCaptureId, amount },
-    });
+    return this.append(
+      bundleId,
+      { type: 'capture_recorded', payload: { paypal_capture_id: paypalCaptureId, amount } },
+      undefined,
+      (state) => {
+        if (state.paypal_capture_id === paypalCaptureId) return true;
+        if (state.paypal_capture_id) {
+          throw new EvidenceError('CONFLICT', `bundle already has capture ${state.paypal_capture_id}`);
+        }
+        return false;
+      },
+    );
   }
 
   recordFulfilment(bundleId: string, fulfilment: Fulfilment): Promise<BundleRecord> {
@@ -366,6 +375,8 @@ export class BundleStore {
     bundleId: string,
     event: BundleEventPayload,
     platformIdForCreate?: string,
+    /** Checked under the ledger lock; returning true skips the append (idempotent no-op). */
+    skipIf?: (state: EvidenceBundle) => boolean,
   ): Promise<BundleRecord> {
     const client = await this.db.$client.connect();
     try {
@@ -379,6 +390,14 @@ export class BundleStore {
       const current = cur.rows[0];
       if (event.type !== 'created' && !current)
         throw new EvidenceError('NOT_FOUND', `bundle ${bundleId} not found`);
+      if (current && skipIf?.(current.state)) {
+        await client.query('commit');
+        return {
+          bundle: current.state,
+          platformId: current.platform_id,
+          merchantId: current.state.offer_snapshot?.merchant_id ?? null,
+        };
+      }
 
       const createdAt = new Date().toISOString();
       let next: BundleState;

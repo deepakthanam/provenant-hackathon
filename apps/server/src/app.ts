@@ -16,8 +16,17 @@ import {
 } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { createAuthenticator } from './auth';
+import { DisputeIntake } from './disputes/intake';
 import { registerErrorHandler } from './errors';
 import { bundleRoutes } from './routes/bundles';
+import { disputeRoutes } from './routes/disputes';
+import { webhookRoutes } from './routes/webhooks';
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    intake: DisputeIntake;
+  }
+}
 
 export interface AppDeps {
   env: Env;
@@ -95,11 +104,19 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   }
 
   const store = new BundleStore(deps.db, deps.signer, deps.blobStore);
-  await app.register(bundleRoutes, {
-    store,
+  const authenticate = createAuthenticator(deps.db);
+  await app.register(bundleRoutes, { store, paypal: deps.paypal, authenticate });
+
+  const intake = new DisputeIntake({
+    db: deps.db,
     paypal: deps.paypal,
-    authenticate: createAuthenticator(deps.db),
+    store,
+    log: app.log,
+    verifySignatures: deps.paypal.mode !== 'mock',
   });
+  app.decorate('intake', intake);
+  await app.register(webhookRoutes, { intake });
+  await app.register(disputeRoutes, { db: deps.db, intake, authenticate });
 
   return app;
 }

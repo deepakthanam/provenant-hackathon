@@ -29,6 +29,7 @@ const app = await buildApp({
 });
 
 const close = async () => {
+  app.intake.stopPolling();
   await app.close();
   await db.$client.end();
   process.exit(0);
@@ -37,3 +38,8 @@ process.on('SIGINT', close);
 process.on('SIGTERM', close);
 
 await app.listen({ port: env.PORT, host: '0.0.0.0' });
+
+// Dispute intake: finish anything stored but unprocessed, then poll as the no-tunnel fallback.
+const resumed = await app.intake.resumePending();
+if (resumed) app.log.info({ resumed }, 'resumed unprocessed webhook events');
+app.intake.startPolling(env.DISPUTE_POLL_INTERVAL_SEC);
