@@ -6,8 +6,8 @@
 | --- | --- |
 | M0 Scaffold | ✅ done |
 | M1 Evidence store | ✅ done |
-| M2 PayPal client | ⏭ next |
-| M3 SDK + demo store + agent | ☐ |
+| M2 PayPal client | ✅ done (sandbox live run pending your credentials) |
+| M3 SDK + demo store + agent | ⏭ next |
 | M4 Dispute intake | ☐ |
 | M5 Adjudicator | ☐ |
 | M6 Actions | ☐ |
@@ -44,9 +44,23 @@ Checks: `curl localhost:4000/healthz` returns `{"status":"ok","db":"ok","paypal_
 
 Checks: editing a `bundle_events` row or a `bundles` row makes `verify` fail (tested). A live run against `pnpm dev` gives create → verify ok → receipt 200.
 
-## Next (M2)
+## M2: what was done
 
-PayPal client interface; `MockPayPal` (Postgres `mock_` tables, dispute lifecycle, webhook emission using fixtures copied from PayPal's docs); `SandboxPayPal` (OAuth with caching, Orders, Disputes, webhook verification, retries, typed errors); contract tests run against both.
+- `@provenant/paypal` has one `PayPalClient` interface and two implementations:
+  - **`HttpPayPal`** (the spec's SandboxPayPal) does client-credentials OAuth with caching and early refresh, and one forced refresh on a 401. It sends `PayPal-Request-Id` on every POST (the same id on every retry) and `PayPal-Partner-Attribution-Id` when `PAYPAL_BN_CODE` is set. It retries 5xx, 429 (honouring `Retry-After`) and network errors with exponential backoff, and never retries other 4xx. Errors become a typed `PayPalError` carrying `debug_id`. Dispute actions send JSON, or multipart (`input` JSON part plus `file1..n`) when files are attached. Evidence files are checked against PayPal's limits (jpg/jpeg/gif/png/pdf, under 10 MB each, 50 MB total). Webhook verification posts the raw event body spliced in byte-for-byte, as PayPal requires. `sandboxCreateDispute` sends the `PayPal-Auth-Assertion` JWT and turns a 403/404/422 into `SandboxDisputeCreationUnavailable`, which explains the manual buyer route.
+  - **`MockPayPal`** keeps its state in Postgres `mock_*` tables (migration `0001_mock_paypal`) in PayPal's JSON shapes. It covers orders (payer approval required before capture, `custom_id` on orders and captures, PATCH, tracking) and the full dispute lifecycle: INQUIRY / WAITING_FOR_SELLER_RESPONSE → evidence → UNDER_REVIEW → adjudicate → RESOLVED, plus offers, buyer acceptance, escalation to CHARGEBACK, accept-claim (full or partial), supporting info and require-evidence. It derives `dispute_state`, `allowed_response_options` and HATEOAS links the way PayPal does, and refuses actions whose link is absent with a 422. Update times strictly increase, so polling never misses a change. Every change emits a PayPal-shaped webhook to a configurable sink, asynchronously like PayPal and recorded in `mock_webhook_events`.
+- **The mock is served over HTTP.** In mock mode the server mounts it at `/mock-paypal` with PayPal's paths, OAuth, multipart, `PayPal-Request-Id` replay, PayPal-style error bodies, and buyer simulation under `/_buyer`. The agent, scenarios and Postman therefore run the *same* `HttpPayPal` code in mock and sandbox modes. These routes are hidden from `/docs`.
+- `createServerPayPal`, `createRemotePayPal` and `createRemoteBuyer` pick the implementation from `PAYPAL_MODE`.
+- Fixtures in `packages/paypal/fixtures/` are copied from PayPal's documentation samples (sources in that folder's README).
+- Tests: one contract suite (`test/contract.ts`) runs against MockPayPal in-process, HttpPayPal → mock over HTTP, and HttpPayPal → the real sandbox (skipped without credentials). There are also 14 HttpPayPal unit tests with a scripted fetch, and a webhook-shape test against the fixtures. 84 tests pass in total, with 5 sandbox ones skipped.
+- `pnpm sandbox:check` does a live sandbox run: OAuth → create order → PATCH `custom_id` → you approve as the sandbox buyer → capture → tracking → list disputes.
+- `pnpm dev:stop` stops leftover dev processes. Embedded Postgres now shuts down through `pg_ctl stop -m fast`, because the library's own stop hard-kills on Windows.
+
+**Not yet verified:** the spec's M2 check ("create → capture → tracking works in sandbox with my credentials") needs your sandbox app. Put `PAYPAL_CLIENT_ID` and `PAYPAL_CLIENT_SECRET` in `.env` and run `pnpm sandbox:check`. The sandbox contract suite also runs automatically once those are set.
+
+## Next (M3)
+
+`@provenant/sdk`; the demo store (catalog, product pages and images, "wrong item" switch); the demo agent CLI (mandate parsing, browsing, comparing, recording through the SDK, order via the Agent Toolkit in sandbox or HttpPayPal → mock, capture, tracking).
 
 ## Deviations from the spec
 
@@ -62,12 +76,15 @@ PayPal client interface; `MockPayPal` (Postgres `mock_` tables, dispute lifecycl
 | D8 | `DATABASE_URL` on port 5432 | Port 5433 | Avoids clashing with a locally installed Postgres |
 | D9 | Layout lists no `db`/`config` packages | Added `packages/db` and `packages/config` | Server, PayPal mock, adjudicator and scripts all share the schema and env |
 | D10 | Node 22 LTS | `engines: >=22`; developed on Node 24 | Backward compatible |
-| D11 | — | Multipart field names follow the schema exactly: `evidence-file`, `accept-claim-document`, `message_document`, `supporting document` | From the Disputes v1 schema |
+| D11 | Multipart field names | A JSON part named `input` plus files `file1..n`; plain JSON when there are no files | The schema lists names like `evidence-file`, but PayPal's own curl samples in the Disputes guide use `input` / `file1`. The guide's concrete samples win (this corrects the M0 note) |
 | D12 | Users are not covered by the API list | Trust-on-first-use: `POST /v1/bundles` accepts `user_public_key` for a new `user_ref` and rejects a different key later | The spec needs per-user mandate signatures but lists no user endpoint |
 | D13 | Bundle API list | Added `POST /v1/bundles/:id/fulfilment`, `GET /v1/bundles/by-order/:orderId` and the public `GET /v1/blobs/:sha256` | The spec has a "add fulfilment" event but no route; the console and webhook processing need lookup by order and images |
 | D14 | Bundle shape | Added `captured_amount`, `created_at`, `sealed_at`, `user_confirmation.amount` and `fulfilment.shipped_items` / `shipped_at` | The rules need the captured amount and the amount the user confirmed; the wrong-item scenario needs what actually shipped |
 | D15 | Receipt "merchant/platform scoped" | `/receipt` is public by bundle id | The buyer has no API key. Ids carry 80 random bits, and bundles hold no names or emails |
 | D16 | `bundle_sig` | `hash` / `prev_hash` / `bundle_sig` on a bundle are its latest ledger row's hash, that row's `prev_hash`, and Provenant's signature over that hash | Makes "the bundle's signature" a single checkable value tied to the chain |
+| D17 | "Bundle's order ID must match the dispute's disputed transaction" | Match on `disputed_transactions[].seller_transaction_id` = the bundle's capture id, cross-checked with `disputed_transactions[].custom` = bundle id | A dispute references the capture (seller transaction), not the order id |
+| D18 | MockPayPal as a separate implementation only | MockPayPal also runs inside the server and is exposed at `/mock-paypal` with PayPal's REST paths | Other processes (agent, scenarios, Postman) can use the real HTTP client against the mock, which tests the sandbox code path offline |
+| D19 | `sandboxAdjudicate(BUYER_FAVOR/SELLER_FAVOR)` outcome names | Request uses `BUYER_FAVOR` / `SELLER_FAVOR`; the mock reports `RESOLVED_BUYER_FAVOUR` / `RESOLVED_SELLER_FAVOUR` | Matches the schema's `dispute_outcome_code` enum (British spelling), even though the adjudicate text says "FAVOR" |
 
 ## Known local quirks (Windows)
 

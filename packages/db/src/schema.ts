@@ -203,3 +203,55 @@ export const kv = pgTable('kv', {
   value: jsonb('value').notNull(),
   updatedAt: updatedAt(),
 });
+
+// ---------------------------------------------------------------------------------------------
+// MockPayPal state (PAYPAL_MODE=mock). Bodies are stored in PayPal's own JSON shapes.
+
+export const mockOrders = pgTable('mock_orders', {
+  id: text('id').primaryKey(),
+  status: text('status').notNull(),
+  body: jsonb('body').notNull(),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+export const mockCaptures = pgTable(
+  'mock_captures',
+  {
+    id: text('id').primaryKey(),
+    orderId: text('order_id').notNull(),
+    body: jsonb('body').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('mock_captures_order_idx').on(t.orderId)],
+);
+
+export const mockDisputes = pgTable(
+  'mock_disputes',
+  {
+    id: text('id').primaryKey(),
+    captureId: text('capture_id').notNull(),
+    body: jsonb('body').notNull(),
+    updateTime: timestamp('update_time', { withTimezone: true }).notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [index('mock_disputes_update_idx').on(t.updateTime)],
+);
+
+export const mockDocuments = pgTable('mock_documents', {
+  id: text('id').primaryKey(),
+  disputeId: text('dispute_id').notNull(),
+  name: text('name').notNull(),
+  contentType: text('content_type').notNull(),
+  bytes: text('bytes_b64').notNull(),
+  createdAt: createdAt(),
+});
+
+export const mockWebhookEvents = pgTable('mock_webhook_events', {
+  id: text('id').primaryKey(),
+  eventType: text('event_type').notNull(),
+  body: jsonb('body').notNull(),
+  deliveredAt: timestamp('delivered_at', { withTimezone: true }),
+  error: text('error'),
+  createdAt: createdAt(),
+});

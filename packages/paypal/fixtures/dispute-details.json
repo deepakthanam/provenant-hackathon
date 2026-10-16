@@ -1,0 +1,128 @@
+{
+  "dispute_id": "PP-R-AYP-10135034",
+  "create_time": "2025-09-18T09:46:54.926Z",
+  "update_time": "2025-09-18T09:49:53.336Z",
+  "disputed_transactions": [
+    {
+      "buyer_transaction_id": "7XB07472F52871902",
+      "seller_transaction_id": "8AW70038VH226914P",
+      "create_time": "2025-09-18T09:42:33.000Z",
+      "transaction_status": "HELD",
+      "gross_amount": {
+        "currency_code": "USD",
+        "value": "2.00"
+      },
+      "buyer": {
+        "name": "John Doe"
+      },
+      "seller": {
+        "email": "sb-ekqdo43289257@business.example.com",
+        "merchant_id": "HAAP3SNYZZ9NG",
+        "name": "The Happy Store"
+      },
+      "items": [
+        {
+          "item_name": "Check Ngo",
+          "item_description": "Check Ngo",
+          "item_quantity": "1",
+          "reason": "MERCHANDISE_OR_SERVICE_NOT_RECEIVED",
+          "item_type": "PRODUCT"
+        }
+      ],
+      "seller_protection_eligible": true,
+      "seller_protection_type": "EXPANDED_SELLER_PROTECTION"
+    }
+  ],
+  "reason": "MERCHANDISE_OR_SERVICE_NOT_RECEIVED",
+  "status": "WAITING_FOR_SELLER_RESPONSE",
+  "dispute_amount": {
+    "currency_code": "USD",
+    "value": "2.00"
+  },
+  "dispute_state": "REQUIRED_ACTION",
+  "dispute_life_cycle_stage": "INQUIRY",
+  "dispute_channel": "INTERNAL",
+  "messages": [
+    {
+      "posted_by": "BUYER",
+      "time_posted": "2025-09-18T09:46:54.926Z",
+      "content": "Test support case"
+    }
+  ],
+  "extensions": {
+    "merchant_contacted": false,
+    "buyer_contacted_time": "2025-09-18T09:46:53.836Z"
+  },
+  "evidences": [
+    {
+      "evidence_type": "CREATE",
+      "notes": "Test support case",
+      "source": "SUBMITTED_BY_BUYER",
+      "date": "2025-09-18T09:46:54.926Z",
+      "dispute_life_cycle_stage": "INQUIRY"
+    },
+    {
+      "evidence_type": "PROOF_OF_FULFILLMENT",
+      "source": "REQUESTED_FROM_SELLER",
+      "date": "2025-09-18T09:49:53.336Z"
+    }
+  ],
+  "seller_response_due_date": "2025-10-08T09:46:54.926Z",
+  "offer": {
+    "buyer_requested_amount": {
+      "currency_code": "USD",
+      "value": "2.00"
+    }
+  },
+  "refund_details": {
+    "allowed_refund_amount": {
+      "currency_code": "USD",
+      "value": "2.00"
+    }
+  },
+  "allowed_response_options": {
+    "accept_claim": {
+      "accept_claim_types": [
+        "PARTIAL_REFUND",
+        "REFUND"
+      ]
+    },
+    "make_offer": {
+      "offer_types": [
+        "REFUND"
+      ]
+    }
+  },
+  "links": [
+    {
+      "href": "https://api-m.sandbox.paypal.com/v1/customer/disputes/PP-R-AYP-10135034",
+      "rel": "self",
+      "method": "GET"
+    },
+    {
+      "href": "https://api-m.sandbox.paypal.com/v1/customer/disputes/PP-R-AYP-10135034/send-message",
+      "rel": "send_message",
+      "method": "POST"
+    },
+    {
+      "href": "https://api-m.sandbox.paypal.com/v1/customer/disputes/PP-R-AYP-10135034/escalate",
+      "rel": "escalate",
+      "method": "POST"
+    },
+    {
+      "href": "https://api-m.sandbox.paypal.com/v1/customer/disputes/PP-R-AYP-10135034/accept-claim",
+      "rel": "accept_claim",
+      "method": "POST"
+    },
+    {
+      "href": "https://api-m.sandbox.paypal.com/v1/customer/disputes/PP-R-AYP-10135034/make-offer",
+      "rel": "make_offer",
+      "method": "POST"
+    },
+    {
+      "href": "https://api-m.sandbox.paypal.com/v1/customer/disputes/PP-R-AYP-10135034/provide-evidence",
+      "rel": "provide_evidence",
+      "method": "POST"
+    }
+  ]
+}

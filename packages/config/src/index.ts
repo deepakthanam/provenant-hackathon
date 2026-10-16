@@ -42,6 +42,12 @@ export const envSchema = z.object({
   PAYPAL_API_BASE: z.string().default('https://api-m.sandbox.paypal.com'),
   PAYPAL_WEBHOOK_ID: optionalString,
   PAYPAL_BN_CODE: optionalString,
+  /** Mock mode only: deliver mock webhooks to /webhooks/paypal (false = rely on polling). */
+  MOCK_PAYPAL_WEBHOOKS: z
+    .string()
+    .optional()
+    .transform((v) => v !== 'false' && v !== '0'),
+  PAYPAL_SANDBOX_BUYER_EMAIL: optionalString,
   DISPUTE_POLL_INTERVAL_SEC: z.coerce.number().int().nonnegative().default(60),
 
   PROVENANT_SIGNING_PRIVATE_KEY: optionalString,

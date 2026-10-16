@@ -67,9 +67,43 @@ export async function ensurePostgres(env: Env, repoRoot: string, log = console.l
   return {
     kind: 'embedded',
     stop: async () => {
-      await server.stop();
+      // embedded-postgres's own stop() hard-kills on Windows, forcing crash recovery next start;
+      // a fast pg_ctl shutdown is clean. Fall back to it only if pg_ctl fails.
+      const res = await pgCtlStop(databaseDir);
+      if (res.status !== 0) return server.stop();
+      // Let the spawned child's handle close so the host process can exit promptly.
+      const child = (server as unknown as { process?: import('node:child_process').ChildProcess }).process;
+      if (child && child.exitCode === null) {
+        await new Promise<void>((resolve) => {
+          const t = setTimeout(resolve, 5000);
+          child.once('exit', () => {
+            clearTimeout(t);
+            resolve();
+          });
+        });
+      }
+      child?.stderr?.destroy();
+      child?.stdout?.destroy();
+      child?.stdin?.destroy();
+      child?.unref();
+      // embedded-postgres registers an exit hook that calls its own stop(); with the process already
+      // gone that would wait on an exit event that never comes, so mark it stopped.
+      (server as unknown as { process?: unknown }).process = undefined;
     },
   };
+}
+
+async function pgCtlStop(databaseDir: string): Promise<{ status: number | null; output: string }> {
+  // The binaries live in a per-platform package that embedded-postgres depends on; it exports `pg_ctl`.
+  const fromEmbedded = createRequire(createRequire(import.meta.url).resolve('embedded-postgres'));
+  const os = process.platform === 'win32' ? 'windows' : process.platform;
+  const binaries = (await import(
+    pathToFileURL(fromEmbedded.resolve(`@embedded-postgres/${os}-${process.arch}`)).href
+  )) as { pg_ctl: string };
+  const res = spawnSync(binaries.pg_ctl, ['stop', '-D', databaseDir, '-m', 'fast', '-w', '-t', '30'], {
+    encoding: 'utf8',
+  });
+  return { status: res.status, output: (res.stdout || res.stderr || '').trim() };
 }
 
 /**
@@ -79,14 +113,11 @@ export async function ensurePostgres(env: Env, repoRoot: string, log = console.l
 export async function stopOrphanedEmbedded(repoRoot: string): Promise<string> {
   const databaseDir = join(repoRoot, 'data', 'pg');
   if (!existsSync(join(databaseDir, 'postmaster.pid'))) return 'embedded Postgres is not running';
-  // The binaries live in a per-platform package that embedded-postgres depends on; it exports `pg_ctl`.
-  const fromEmbedded = createRequire(createRequire(import.meta.url).resolve('embedded-postgres'));
-  const os = process.platform === 'win32' ? 'windows' : process.platform;
-  const binaries = (await import(
-    pathToFileURL(fromEmbedded.resolve(`@embedded-postgres/${os}-${process.arch}`)).href
-  )) as { pg_ctl: string };
-  const res = spawnSync(binaries.pg_ctl, ['stop', '-D', databaseDir, '-m', 'fast'], { encoding: 'utf8' });
-  return (res.stdout || res.stderr || '').trim();
+  const res = await pgCtlStop(databaseDir);
+  if (/No such process|not running/i.test(res.output)) {
+    return 'embedded Postgres is not running (stale lock file; Postgres clears it on next start)';
+  }
+  return res.output;
 }
 
 export function redact(databaseUrl: string): string {

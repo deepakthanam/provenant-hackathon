@@ -5,6 +5,7 @@ import { envSchema } from '@provenant/config';
 import { generateApiKey, seedDemo } from '@provenant/db/seed';
 import { createTestDatabase, type TestDatabase } from '@provenant/db/testing';
 import { generateKeyPairB64, LocalBlobStore, Signer } from '@provenant/evidence';
+import { MockPayPal } from '@provenant/paypal';
 import type { FastifyInstance } from 'fastify';
 import { inject } from 'vitest';
 import { buildApp } from '../src/app';
@@ -30,6 +31,7 @@ export async function createHarness(opts: { pingDb?: () => Promise<boolean> } = 
     db: tdb.db,
     signer: Signer.fromB64(generateKeyPairB64().privateKey),
     blobStore: new LocalBlobStore(mkdtempSync(join(tmpdir(), 'pv-srv-'))),
+    paypal: new MockPayPal({ db: tdb.db, baseUrl: 'http://localhost/mock-paypal' }),
     pingDb: opts.pingDb,
   });
   return {

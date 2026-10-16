@@ -1,0 +1,22 @@
+{
+  "name": "@provenant/paypal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./mock-routes": "./src/mock-routes.ts",
+    "./fixtures/*": "./fixtures/*"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run --root ../.. --project @provenant/paypal"
+  },
+  "dependencies": {
+    "@fastify/multipart": "^9.0.0",
+    "@provenant/config": "workspace:*",
+    "@provenant/db": "workspace:*",
+    "drizzle-orm": "^0.44.0",
+    "fastify": "^5.5.0"
+  }
+}

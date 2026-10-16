@@ -5,6 +5,8 @@ import swaggerUi from '@fastify/swagger-ui';
 import type { Env } from '@provenant/config';
 import type { Db } from '@provenant/db';
 import { type BlobStore, BundleStore, type Signer } from '@provenant/evidence';
+import { MOCK_PAYPAL_PREFIX, MockPayPal, type PayPalClient } from '@provenant/paypal';
+import { mockPayPalRoutes } from '@provenant/paypal/mock-routes';
 import Fastify, { type FastifyInstance } from 'fastify';
 import {
   jsonSchemaTransform,
@@ -22,6 +24,7 @@ export interface AppDeps {
   db: Db;
   signer: Signer;
   blobStore: BlobStore;
+  paypal: PayPalClient;
   /** Defaults to `select 1` against `db`; injectable so tests can simulate an outage. */
   pingDb?: () => Promise<boolean>;
 }
@@ -85,6 +88,11 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
       return { status: 'ok' as const, db: 'ok' as const, paypal_mode: deps.env.PAYPAL_MODE };
     },
   );
+
+  // In mock mode the server also *is* PayPal: other processes reach the mock over HTTP here.
+  if (deps.paypal instanceof MockPayPal) {
+    await app.register(mockPayPalRoutes, { prefix: MOCK_PAYPAL_PREFIX, mock: deps.paypal });
+  }
 
   const store = new BundleStore(deps.db, deps.signer, deps.blobStore);
   await app.register(bundleRoutes, { store, authenticate: createAuthenticator(deps.db) });

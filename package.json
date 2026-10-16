@@ -20,7 +20,9 @@
     "test": "vitest run",
     "typecheck": "turbo run typecheck && tsc -p .",
     "lint": "biome check .",
-    "lint:fix": "biome check --write ."
+    "lint:fix": "biome check --write .",
+    "sandbox:check": "tsx scripts/sandbox-check.ts",
+    "dev:stop": "tsx scripts/dev-stop.ts"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
@@ -33,6 +35,7 @@
   "dependencies": {
     "@provenant/config": "workspace:*",
     "@provenant/db": "workspace:*",
-    "@provenant/evidence": "workspace:*"
+    "@provenant/evidence": "workspace:*",
+    "@provenant/paypal": "workspace:*"
   }
 }
