@@ -8,6 +8,9 @@ import EmbeddedPostgres from 'embedded-postgres';
 import pg from 'pg';
 import { ping } from './index';
 
+/** Explicit UTF-8 (template0 allows it whatever the cluster default is). */
+export const UTF8_DB = "encoding 'UTF8' lc_collate 'C' lc_ctype 'C' template template0";
+
 export interface PostgresHandle {
   /** 'external' when DATABASE_URL was already reachable, 'embedded' when we started one. */
   kind: 'external' | 'embedded';
@@ -46,6 +49,8 @@ export async function ensurePostgres(env: Env, repoRoot: string, log = console.l
     password,
     port,
     persistent: true,
+    // Windows initdb defaults to the system code page (e.g. WIN1252); evidence text must be UTF-8.
+    initdbFlags: ['--encoding=UTF8', '--locale=C'],
     onLog: () => {},
     onError: (e: unknown) => log(`[postgres] ${String(e).trim()}`),
   });
@@ -61,7 +66,9 @@ export async function ensurePostgres(env: Env, repoRoot: string, log = console.l
   const admin = new pg.Client({ host: '127.0.0.1', port, user, password, database: 'postgres' });
   await admin.connect();
   const exists = await admin.query('select 1 from pg_database where datname = $1', [database]);
-  if (exists.rowCount === 0) await admin.query(`create database "${database.replace(/"/g, '')}"`);
+  if (exists.rowCount === 0) {
+    await admin.query(`create database "${database.replace(/"/g, '')}" ${UTF8_DB}`);
+  }
   await admin.end();
 
   return {

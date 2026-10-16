@@ -188,6 +188,20 @@ describe('BundleStore', () => {
     expect(r.failures).toContain('offer_image_integrity: image missing or altered');
   });
 
+  it('stores non-Latin-1 text intact (UTF-8 end to end)', async () => {
+    const { bundle } = await store.create({
+      platformId: 'demo-agent',
+      agentVersion: '0.1.0',
+      userRef: 'usr_utf8',
+      userPublicKey: user.publicKey,
+      mandate: mandate('usr_utf8'),
+    });
+    const detail = 'colour blue ≠ black · größe 10 · 日本 · ✓';
+    await store.recordDecision(bundle.bundle_id, { step: 'rule_check', detail });
+    expect((await store.get(bundle.bundle_id))?.bundle.decision_trace[0]?.detail).toBe(detail);
+    expect((await store.verify(bundle.bundle_id)).ok).toBe(true);
+  });
+
   it('enforces OPEN-only edits after sealing', async () => {
     const id = await fullBundle();
     await expect(store.recordDecision(id, { step: 'late', detail: 'x' })).rejects.toMatchObject({

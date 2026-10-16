@@ -1,0 +1,30 @@
+{
+  "name": "@provenant/demo-agent",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/purchase.ts"
+  },
+  "scripts": {
+    "agent": "tsx src/cli.ts",
+    "typecheck": "tsc -p .",
+    "test": "vitest run --root ../.. --project @provenant/demo-agent"
+  },
+  "dependencies": {
+    "@paypal/agent-toolkit": "1.11.0",
+    "@provenant/config": "workspace:*",
+    "@provenant/llm": "workspace:*",
+    "@provenant/paypal": "workspace:*",
+    "@provenant/schemas": "workspace:*",
+    "@provenant/sdk": "workspace:*",
+    "zod": "^4.1.5"
+  },
+  "devDependencies": {
+    "@provenant/db": "workspace:*",
+    "@provenant/evidence": "workspace:*",
+    "@provenant/server": "workspace:*",
+    "@provenant/demo-store": "workspace:*",
+    "fastify": "^5.5.0"
+  }
+}

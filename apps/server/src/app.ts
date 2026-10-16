@@ -95,7 +95,11 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   }
 
   const store = new BundleStore(deps.db, deps.signer, deps.blobStore);
-  await app.register(bundleRoutes, { store, authenticate: createAuthenticator(deps.db) });
+  await app.register(bundleRoutes, {
+    store,
+    paypal: deps.paypal,
+    authenticate: createAuthenticator(deps.db),
+  });
 
   return app;
 }

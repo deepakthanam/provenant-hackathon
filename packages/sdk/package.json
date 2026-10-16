@@ -1,0 +1,21 @@
+{
+  "name": "@provenant/sdk",
+  "version": "0.1.0",
+  "description": "Record agent mandates, offers and decisions as signed evidence bundles linked to PayPal orders",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc -p .",
+    "test": "vitest run --root ../.. --project @provenant/sdk"
+  },
+  "dependencies": {
+    "@provenant/evidence": "workspace:*",
+    "@provenant/schemas": "workspace:*"
+  },
+  "devDependencies": {
+    "@provenant/paypal": "workspace:*"
+  }
+}

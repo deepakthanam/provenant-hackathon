@@ -1,4 +1,5 @@
 import type { BundleRecord, BundleStore } from '@provenant/evidence';
+import type { PayPalClient } from '@provenant/paypal';
 import {
   CreateBundleRequest,
   ErrorResponse,
@@ -16,6 +17,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { canFulfil, canRead, canWrite, type Principal, principalOf, requireKind } from '../auth';
+import { syncCapture } from '../capture';
 import { HttpError } from '../errors';
 import { renderReceipt } from '../receipt';
 
@@ -32,6 +34,7 @@ const security = [{ bearer: [] }];
 
 export interface BundleRouteDeps {
   store: BundleStore;
+  paypal: PayPalClient;
   authenticate: (req: FastifyRequest) => Promise<void>;
 }
 
@@ -186,6 +189,25 @@ export async function bundleRoutes(app: FastifyInstance, deps: BundleRouteDeps):
       async (req) => {
         await load(req.params.id, principalOf(req), canWrite);
         return (await store.seal(req.params.id, req.body.paypal_order_id)).bundle;
+      },
+    );
+
+    a.post(
+      '/v1/bundles/:id/capture',
+      {
+        schema: {
+          tags: ['bundles'],
+          summary:
+            "Record the order's capture, verified against PayPal (amount comes from PayPal, not the caller)",
+          security,
+          params: Params,
+          body: z.object({ paypal_capture_id: z.string().min(1).max(64).optional() }),
+          response: { 200: EvidenceBundle, ...errors },
+        },
+      },
+      async (req) => {
+        await load(req.params.id, principalOf(req), canFulfil);
+        return (await syncCapture(store, deps.paypal, req.params.id, req.body.paypal_capture_id)).bundle;
       },
     );
 

@@ -11,7 +11,10 @@ export interface TestDatabase {
 /** Creates an isolated, migrated database on the server at `baseUrl`. Call `drop()` in afterAll. */
 export async function createTestDatabase(baseUrl: string): Promise<TestDatabase> {
   const name = `pv_test_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
-  await adminQuery(baseUrl, `create database ${name}`);
+  await adminQuery(
+    baseUrl,
+    `create database ${name} encoding 'UTF8' lc_collate 'C' lc_ctype 'C' template template0`,
+  );
   const u = new URL(baseUrl);
   u.pathname = `/${name}`;
   const url = u.toString();

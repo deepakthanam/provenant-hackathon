@@ -22,7 +22,8 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "sandbox:check": "tsx scripts/sandbox-check.ts",
-    "dev:stop": "tsx scripts/dev-stop.ts"
+    "dev:stop": "tsx scripts/dev-stop.ts",
+    "agent": "pnpm --filter @provenant/demo-agent agent"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
