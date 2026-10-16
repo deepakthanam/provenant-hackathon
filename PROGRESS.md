@@ -180,7 +180,7 @@ Checks:
 | Fresh clone, no credentials: `pnpm bootstrap && pnpm demo` runs all five scenarios and the console shows them | ✅ verified (D6: `bootstrap` instead of `setup`) |
 | With sandbox credentials: real sandbox orders, at least one real sandbox dispute adjudicated and actioned | ⏳ **needs your sandbox app.** The code paths are built and contract-tested against the mock; run `pnpm sandbox:check`, then a sandbox purchase with `pnpm agent`, then open a dispute as the sandbox buyer (README → Sandbox mode) |
 | Tests, lint, typecheck pass; no secrets committed; MIT licence | ✅ (`.env`, `data/` and generated Postman environments are gitignored) |
-| PROGRESS.md lists deviations | ✅ D1–D28 below |
+| PROGRESS.md lists deviations | ✅ D1–D29 below |
 
 ## Open items
 
@@ -220,6 +220,7 @@ Checks:
 | D26 | AG Grid "row grouping by verdict" | Group-by-verdict built from full-width section rows, plus verdict filter stamps | Row grouping is an AG Grid Enterprise feature; the spec fixes AG Grid Community |
 | D27 | Console auth | The console holds the admin key server-side and proxies a fixed list of endpoints; there is no login | Local demo; console login is tracked for M9 / deployment |
 | D28 | Postman runs the main flow with no extra helpers | It uses `/dev/demo-user/sign` to obtain the user's Ed25519 signature | Postman's sandbox cannot do Ed25519; production users sign on their own device |
+| D29 | Use the Agent Toolkit as published | `pnpm-workspace.yaml` adds `tslib` ^2 to `@paypal/paypal-server-sdk@1` via `packageExtensions` | The SDK (pulled in by `@paypal/agent-toolkit` 1.11) uses tslib 2 at runtime but declares it only as a devDependency; without it, sandbox checkout crashed with `tslib_1.__spreadArray is not a function` |
 
 ## Known local quirks (Windows)
 

@@ -15,3 +15,11 @@ onlyBuiltDependencies:
   - "@embedded-postgres/darwin-x64"
   - sharp
   - "@tailwindcss/oxide"
+
+# @paypal/paypal-server-sdk 1.1.0 (pulled in by @paypal/agent-toolkit) requires tslib 2 at runtime but
+# declares it only as a devDependency; without this it resolves a stray tslib 1.x and crashes with
+# "tslib_1.__spreadArray is not a function".
+packageExtensions:
+  "@paypal/paypal-server-sdk@1":
+    dependencies:
+      tslib: "^2.5.0"
