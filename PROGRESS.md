@@ -11,8 +11,8 @@
 | M4 Dispute intake | ✅ done |
 | M5 Adjudicator | ✅ done |
 | M6 Actions | ✅ done (mock verified; sandbox run pending credentials) |
-| M7 Console | ⏭ next |
-| M8 MCP, Postman, docs | ☐ |
+| M7 Console | ✅ done |
+| M8 MCP, Postman, docs | ⏭ next |
 | M9 Hardening | ☐ |
 
 ## M0: what was done
@@ -135,9 +135,22 @@ Also tested: the PDF really reaches PayPal (downloaded back as `%PDF`); double a
 
 **Not yet verified:** the sandbox end-to-end run of `remorse` (spec M6) needs your sandbox credentials and a dispute. Sandbox dispute creation is limited release; the manual route (the sandbox buyer opens the dispute in the PayPal UI, then polling picks it up) is documented in README → Receiving PayPal dispute events.
 
-## Next (M7)
+## M7: what was done
 
-The console: dispute queue (AG Grid), dispute detail with approve / override / reject, liability view, bundle explorer, and a Playwright smoke test.
+- **Visual direction** chosen with you on the decision page: **Chain of custody** (each dispute is a sealed evidence bag; the console is its label and custody log). The direction contract is in `.impeccable/surfaces/console.md`, the design system in `DESIGN.md`, and product context in `PRODUCT.md`. Palette: label paper, manila forms, clear-poly panels, near-black ink, and red tamper tape reserved for seals, money owed and pending approvals. Type: Public Sans, JetBrains Mono for data, Saira Stencil for exhibit numbers.
+- **Dispute queue** (`/`): AG Grid Community with a custom theme (Quartz params). Columns: exhibit, stamped verdict, confidence, planned PayPal call + approval state, reason, stage · status, amount, age. There are column filters and sorting, verdict filter stamps with counts, **group by verdict**, "Check PayPal now" (poll), a live refresh every 3s, and a **side label panel** on row click.
+- **Dispute detail** (`/disputes/:id`): exhibit number; the **tamper tape** (intact, or torn with VOID and the failed check, tearing once on arrival); claim against the snapshot side by side (listing image and attributes, with the cited rows highlighted, beside the buyer's words and photos); model findings with field citations, dropped uncited claims, model id and prompt hash; reasons with refs; the rule checklist (integrity / mandate / delivery); the signed mandate, cart vs charge, what was packed, and the decision trace; and the **custody log** (bundle, webhooks, polls, verdicts, executed calls with request and debug ids). The decision rail shows the **exact PayPal request** (method, path, JSON body, attached files, refund and liability) with **Approve / Override / Reject** (inline forms), then the integrity proof and links to the evidence PDF and the buyer receipt.
+- **Liability** (`/liability`): totals by agent platform and entries. **Bundle explorer** (`/bundles`): search by PayPal order id or bundle id, recent bundles, and a bundle page with the seal, every verification check, mandate, snapshot, cart and trace.
+- Browser → `/api/*` route handlers → API. The admin key never reaches the browser, and only the console's endpoints are proxied.
+- API additions: `inputs_summary` on verdicts (buyer messages and images by hash) and `GET /v1/bundles` (recent bundles).
+- Error, not-found and empty states; reduced motion respected; the dev overlay is hidden for the video.
+- Verified with two batched screenshot rounds (1440px desktop and 390px mobile). The design detector found nothing.
+
+Check: Playwright smoke test (`pnpm test:e2e`, needs `pnpm dev` running). Its global setup creates a fresh dispute; the test opens the queue, finds the stamped row, opens the label panel and then the evidence bag, sees SEAL INTACT, approves, sees "Sent to PayPal.", the status becomes "Under PayPal review", and the queue row shows "Sent to PayPal". It passes.
+
+## Next (M8)
+
+Provenant MCP server; Postman collection + environment run with Newman; OpenAPI check; `docs/architecture.md` (Mermaid) and `docs/verdicts.md`.
 
 ## Deviations from the spec
 
@@ -168,6 +181,8 @@ The console: dispute queue (AG Grid), dispute detail with approve / override / r
 | D23 | Mock LLM | The mock claim comparison reads attribute claims from the buyer's text, not pixels | Deterministic and offline; a real provider sees the snapshot image and the buyer photo |
 | D24 | `POST /dev/scenarios/:name` | `POST /dev/tamper/:bundleId`; scenarios run from `pnpm scenario` | Running scenarios inside the API process would make the server depend on the agent package |
 | D25 | Approve executes "the planned call" | Executions re-check PayPal's live links and allowed options first; overrides are limited to the five dispute actions and validated against PayPal's options | The plan can be stale by the time a human approves |
+| D26 | AG Grid "row grouping by verdict" | Group-by-verdict built from full-width section rows, plus verdict filter stamps | Row grouping is an AG Grid Enterprise feature; the spec fixes AG Grid Community |
+| D27 | Console auth | The console holds the admin key server-side and proxies a fixed list of endpoints; there is no login | Local demo; console login is tracked for M9 / deployment |
 
 ## Known local quirks (Windows)
 

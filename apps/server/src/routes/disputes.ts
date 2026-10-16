@@ -44,6 +44,13 @@ export const VerdictView = z.object({
   model_meta: z.record(z.string(), z.unknown()).nullable(),
   prompt_hash: z.string().nullable(),
   inputs_hash: z.string(),
+  /** What the verdict looked at, for display: buyer messages and images by hash. */
+  inputs_summary: z.object({
+    buyer_messages: z.array(z.string()),
+    buyer_images: z.array(z.object({ name: z.string(), sha256: z.string(), content_type: z.string() })),
+    snapshot_image_sha256: z.string().nullable(),
+    link_basis: z.string().nullable(),
+  }),
   recommended_action: PlannedActionView,
   approved_by: z.string().nullable(),
   executed_action: z.record(z.string(), z.unknown()).nullable(),
@@ -71,6 +78,24 @@ export const DisputeSummary = z.object({
 
 type DisputeRow = typeof disputes.$inferSelect;
 
+function inputsSummary(raw: unknown) {
+  const i = raw as {
+    buyer?: { messages?: string[]; images?: Array<{ name: string; sha256: string; contentType: string }> };
+    snapshotImage?: { sha256: string } | null;
+    link?: { basis?: string };
+  };
+  return {
+    buyer_messages: i.buyer?.messages ?? [],
+    buyer_images: (i.buyer?.images ?? []).map((x) => ({
+      name: x.name,
+      sha256: x.sha256,
+      content_type: x.contentType,
+    })),
+    snapshot_image_sha256: i.snapshotImage?.sha256 ?? null,
+    link_basis: i.link?.basis ?? null,
+  };
+}
+
 export function verdictView(v: VerdictRow): z.infer<typeof VerdictView> {
   return {
     id: v.id,
@@ -84,6 +109,7 @@ export function verdictView(v: VerdictRow): z.infer<typeof VerdictView> {
     model_meta: (v.modelMeta as Record<string, unknown> | null) ?? null,
     prompt_hash: v.promptHash,
     inputs_hash: v.inputsHash,
+    inputs_summary: inputsSummary(v.inputs),
     recommended_action: v.recommendedAction as never,
     approved_by: v.approvedBy,
     executed_action: (v.executedAction as Record<string, unknown> | null) ?? null,

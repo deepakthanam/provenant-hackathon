@@ -15,7 +15,7 @@ import {
   toMinor,
   type VerifyResult,
 } from '@provenant/schemas';
-import { eq } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import { ulid } from 'ulid';
 import type { BlobStore } from './blobs';
 import { canonicalize } from './canonical';
@@ -196,6 +196,12 @@ export class BundleStore {
   async get(bundleId: string): Promise<BundleRecord | null> {
     const [row] = await this.db.select().from(bundles).where(eq(bundles.id, bundleId));
     return row ? toRecord(row) : null;
+  }
+
+  /** Most recently updated bundles first (bundle explorer). */
+  async listRecent(limit = 50): Promise<BundleRecord[]> {
+    const rows = await this.db.select().from(bundles).orderBy(desc(bundles.updatedAt)).limit(limit);
+    return rows.map(toRecord);
   }
 
   async getByOrderId(paypalOrderId: string): Promise<BundleRecord | null> {

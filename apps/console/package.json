@@ -8,18 +8,24 @@
     "build": "next build",
     "start": "tsx scripts/next.ts start",
     "typecheck": "tsc -p . --noEmit",
-    "test": "vitest run --root ../.. --project @provenant/console"
+    "test": "vitest run --root ../.. --project @provenant/console",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@provenant/config": "workspace:*",
     "next": "^16.0.0",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "ag-grid-community": "^36.0.0",
+    "ag-grid-react": "^36.0.0",
+    "lucide-react": "^0.500.0",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "tailwindcss": "^4.1.0"
+    "tailwindcss": "^4.1.0",
+    "@playwright/test": "^1.55.0"
   }
 }

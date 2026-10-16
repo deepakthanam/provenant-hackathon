@@ -261,6 +261,57 @@ export async function bundleRoutes(app: FastifyInstance, deps: BundleRouteDeps):
     );
 
     a.get(
+      '/v1/bundles',
+      {
+        schema: {
+          tags: ['bundles'],
+          summary: 'Recent bundles visible to the caller (bundle explorer)',
+          security,
+          querystring: z.object({ limit: z.coerce.number().int().min(1).max(200).default(50) }),
+          response: {
+            200: z.object({
+              items: z.array(
+                z.object({
+                  bundle_id: z.string(),
+                  status: z.string(),
+                  user_ref: z.string(),
+                  platform_id: z.string(),
+                  merchant_id: z.string().nullable(),
+                  paypal_order_id: z.string().nullable(),
+                  paypal_capture_id: z.string().nullable(),
+                  title: z.string().nullable(),
+                  amount: z.object({ value: z.string(), currency: z.string() }).nullable(),
+                  created_at: z.string(),
+                  hash: z.string(),
+                }),
+              ),
+            }),
+            ...errors,
+          },
+        },
+      },
+      async (req) => {
+        const p = principalOf(req);
+        const recs = (await store.listRecent(req.query.limit)).filter((r) => canRead(p, r));
+        return {
+          items: recs.map(({ bundle: b, platformId, merchantId }) => ({
+            bundle_id: b.bundle_id,
+            status: b.status,
+            user_ref: b.user_ref,
+            platform_id: platformId,
+            merchant_id: merchantId,
+            paypal_order_id: b.paypal_order_id,
+            paypal_capture_id: b.paypal_capture_id,
+            title: b.offer_snapshot?.title ?? null,
+            amount: b.captured_amount ?? null,
+            created_at: b.created_at,
+            hash: b.hash,
+          })),
+        };
+      },
+    );
+
+    a.get(
       '/v1/bundles/by-order/:orderId',
       {
         schema: {

@@ -1,25 +1,30 @@
 import type { Metadata } from 'next';
+import { JetBrains_Mono, Public_Sans, Saira_Stencil } from 'next/font/google';
 import type { ReactNode } from 'react';
+import { TopBand } from '@/components/top-band';
+import { paypalMode } from '@/lib/api';
 import './globals.css';
 
+const publicSans = Public_Sans({ subsets: ['latin'], variable: '--font-public-sans', display: 'swap' });
+const jetbrains = JetBrains_Mono({ subsets: ['latin'], variable: '--font-jetbrains', display: 'swap' });
+const stencil = Saira_Stencil({
+  subsets: ['latin'],
+  weight: ['600'],
+  variable: '--font-stencil-face',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
-  title: 'Provenant console',
-  description: 'Dispute adjudication for AI-agent purchases',
+  title: 'Provenant',
+  description: 'Evidence and verdicts for disputes on AI-agent purchases',
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${publicSans.variable} ${jetbrains.variable} ${stencil.variable}`}>
       <body>
-        <header className="border-b border-slate-200 bg-white">
-          <div className="mx-auto flex max-w-7xl items-center gap-6 px-6 py-3">
-            <span className="text-lg font-semibold tracking-tight">Provenant</span>
-            <nav className="flex gap-4 text-sm text-slate-600">
-              <a href="/">Disputes</a>
-            </nav>
-          </div>
-        </header>
-        <main className="mx-auto max-w-7xl px-6 py-8">{children}</main>
+        <TopBand mode={paypalMode()} />
+        <main className="mx-auto max-w-[1440px] px-8 pb-24 pt-8">{children}</main>
       </body>
     </html>
   );

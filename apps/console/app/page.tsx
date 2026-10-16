@@ -1,30 +1,47 @@
-const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:4000';
+import { connection } from 'next/server';
+import { Queue } from '@/components/queue';
+import { api } from '@/lib/api';
+import type { DisputeSummary } from '@/lib/types';
 
-async function getHealth(): Promise<{ ok: boolean; detail: string }> {
+export default async function DisputesPage() {
+  await connection();
+  let items: DisputeSummary[] = [];
+  let error: string | null = null;
   try {
-    const res = await fetch(`${API}/healthz`, { cache: 'no-store' });
-    const body = (await res.json()) as Record<string, string>;
-    return { ok: res.ok, detail: JSON.stringify(body) };
+    items = (await api<{ items: DisputeSummary[] }>('/v1/disputes')).items;
   } catch (e) {
-    return { ok: false, detail: e instanceof Error ? e.message : 'unreachable' };
+    error = e instanceof Error ? e.message : String(e);
   }
-}
+  const awaiting = items.filter(
+    (d) => d.verdict_status === 'PENDING' && d.planned_action?.kind !== 'none',
+  ).length;
 
-export default async function Home() {
-  const health = await getHealth();
   return (
-    <section className="space-y-4">
-      <h1 className="text-2xl font-semibold">Dispute queue</h1>
-      <p className="text-slate-600">The queue arrives in M7. API status:</p>
-      <div
-        className={`inline-flex items-center gap-2 rounded-full px-3 py-1 text-sm font-medium ${
-          health.ok ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
-        }`}
-        data-testid="api-health"
-      >
-        {health.ok ? 'API healthy' : 'API unreachable'}
-        <code className="text-xs opacity-70">{health.detail}</code>
+    <>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+          <h1 className="text-[34px] font-bold leading-tight tracking-[-0.02em]">Dispute queue</h1>
+          <p className="mt-1 max-w-[70ch] text-[16px] text-ink-2">
+            Every dispute on an order an AI agent placed, judged against the evidence sealed at purchase.
+            {awaiting > 0 ? (
+              <>
+                {' '}
+                <span className="font-semibold text-tape">{awaiting} waiting for your approval.</span>
+              </>
+            ) : null}
+          </p>
+        </div>
       </div>
-    </section>
+      {error ? (
+        <div className="border-2 border-tape px-6 py-5 text-[15px]">
+          <p className="font-semibold text-tape">The Provenant API is not answering.</p>
+          <p className="mt-1 text-ink-2">
+            {error}. Start it with <code className="font-mono">pnpm dev</code>, then reload.
+          </p>
+        </div>
+      ) : (
+        <Queue initial={items} />
+      )}
+    </>
   );
 }

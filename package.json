@@ -26,7 +26,8 @@
     "agent": "pnpm --filter @provenant/demo-agent agent",
     "scenario": "pnpm --filter @provenant/demo-agent scenario",
     "demo": "pnpm --filter @provenant/demo-agent scenario all",
-    "replay": "tsx scripts/replay.ts"
+    "replay": "tsx scripts/replay.ts",
+    "test:e2e": "pnpm --filter @provenant/console test:e2e"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
