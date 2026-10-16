@@ -26,18 +26,22 @@ pnpm bootstrap           # install, .env, signing + API keys, embedded Postgres 
 pnpm dev                 # API :4000 (OpenAPI at /docs) · console :3000 · demo store :4100
 ```
 
-Then, in a second terminal:
+Then run the demo (in a second terminal, or on its own: it starts the stack when needed):
 
 ```sh
 pnpm demo                # five agent purchases, five disputes, five verdicts, approved and settled
 pnpm demo --no-approve   # same, but leaves the verdicts for you to approve in the console
 ```
 
+From a fresh clone, `pnpm bootstrap && pnpm demo` is all it takes.
+
 Open the console at http://localhost:3000.
 
 - Use `pnpm bootstrap` rather than `pnpm setup`: `setup` is a built-in pnpm command that modifies your PATH. The `setup` script exists too and can be run as `pnpm run setup`.
 - Postgres starts embedded (data in `./data/pg`) unless something already answers at `DATABASE_URL`. To use Docker instead, run `docker compose -f infra/docker-compose.yml up -d` and set `DATABASE_MODE=external`.
 - After closing a terminal without Ctrl+C, run `pnpm dev:stop`.
+- On Windows, clone into a short path (for example `C:\src\provenant`). The embedded Postgres binaries sit deep inside `node_modules`, and paths over 260 characters fail to start unless Windows long paths are enabled.
+- `pnpm demo` starts the stack itself when it is not already running, and keeps it up afterwards for the console.
 
 ## The five scenarios
 

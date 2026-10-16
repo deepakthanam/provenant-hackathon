@@ -13,7 +13,7 @@
 | M6 Actions | ✅ done (mock verified; sandbox run pending credentials) |
 | M7 Console | ✅ done |
 | M8 MCP, Postman, docs | ✅ done |
-| M9 Hardening | ⏭ next |
+| M9 Hardening | ✅ done |
 
 ## M0: what was done
 
@@ -158,9 +158,35 @@ Check: Playwright smoke test (`pnpm test:e2e`, needs `pnpm dev` running). Its gl
 
 Check: `pnpm postman` → Newman ran 25 requests with 40 assertions and 0 failures against local mock mode. 161 tests pass.
 
-## Next (M9)
+## M9: what was done
 
-Hardening: input limits, rate limiting on public routes, structured logging with request ids (no PII, no secrets), error pages, seed data, `render.yaml`, and a fresh-clone run of `pnpm bootstrap && pnpm demo`.
+- **Input limits**: 6 MB body limit (images); 1 MB on webhooks; every request field is bounded by Zod (lengths, counts, formats); PayPal evidence files are checked against PayPal's types and sizes.
+- **Rate limiting** (`@fastify/rate-limit`, opt-in per route) on the unauthenticated surfaces: receipt 60/min/IP, blobs and webhooks 600/min/IP. The bearer-authenticated API relies on keys.
+- **Structured logging**: pino JSON with request ids (`x-request-id` accepted and echoed). `authorization`, `paypal-auth-assertion`, `paypal-transmission-sig` and cookies are redacted. Bodies are never logged, and records carry only pseudonymous user refs (no names or emails).
+- **Security headers**: `nosniff`, `DENY` framing, `no-referrer`. CORS is limited to the console origin.
+- **Errors**: one JSON error shape with request id, and internals never echoed. The console has error, not-found and empty states. The console has an optional HTTP Basic gate (`CONSOLE_PASSWORD`, Next `proxy.ts`) for deployments.
+- **Seed data**: the demo platform, merchant and keys are seeded on bootstrap and on every server start; `pnpm demo` creates the five scenarios.
+- **`pnpm demo`** starts the whole stack when it is not running, runs the scenarios, and keeps the stack up for the console.
+- **`infra/render.yaml`**: Render Postgres 16, API (migrations as pre-deploy, a disk for blobs), console, and store; secrets as `sync: false`. Ready, not deployed. A production `next build` of the console passes.
+
+Checks:
+- `pnpm test` (165 passed, 5 sandbox-only skipped), `pnpm lint` (no errors; warnings for explicit `any` in tests and mock routes) and `pnpm typecheck` all pass.
+- **Fresh clone**: `git clone` → no `.env` → `pnpm bootstrap` (22s with a warm pnpm store) → `pnpm demo` started the stack, ran all five scenarios to their expected PayPal end states, and the console listed the five disputes with the liability total. This needs a short clone path on Windows (see README); a 270-character temp path failed with ENOENT on `initdb.exe` because of MAX_PATH.
+
+## Definition of done
+
+| Item | State |
+| --- | --- |
+| Fresh clone, no credentials: `pnpm bootstrap && pnpm demo` runs all five scenarios and the console shows them | ✅ verified (D6: `bootstrap` instead of `setup`) |
+| With sandbox credentials: real sandbox orders, at least one real sandbox dispute adjudicated and actioned | ⏳ **needs your sandbox app.** The code paths are built and contract-tested against the mock; run `pnpm sandbox:check`, then a sandbox purchase with `pnpm agent`, then open a dispute as the sandbox buyer (README → Sandbox mode) |
+| Tests, lint, typecheck pass; no secrets committed; MIT licence | ✅ (`.env`, `data/` and generated Postman environments are gitignored) |
+| PROGRESS.md lists deviations | ✅ D1–D28 below |
+
+## Open items
+
+- Run the sandbox path end to end with your credentials (see above). Anything PayPal's sandbox does differently from the mock will show up there first: likely the exact dispute link set at each stage, and document download permissions for buyer photos.
+- The `--auto-approve` Playwright helper for sandbox checkout (D2) was not built; approval is done by hand through the printed link.
+- `DISPUTE_CREATE` (sandbox API dispute creation) needs a PayPal account manager; the manual buyer route is documented.
 
 ## Deviations from the spec
 
