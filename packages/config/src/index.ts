@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
+import tls from 'node:tls';
 import { config as loadDotenv } from 'dotenv';
 import { z } from 'zod';
 
@@ -88,5 +89,25 @@ export function loadEnv(opts: { reload?: boolean } = {}): Env {
     throw new Error(`Invalid environment configuration:\n${issues}`);
   }
   cached = parsed.data;
+  trustSystemCertificates();
   return cached;
+}
+
+let systemCaAdded = false;
+
+/**
+ * Adds the operating system's trusted certificates to Node's defaults (Node otherwise trusts only
+ * its bundled list). Antivirus HTTPS scanning and corporate proxies re-sign TLS traffic with a
+ * root that only the OS trusts, which surfaces as "self-signed certificate in certificate chain"
+ * on calls to the Anthropic API. Same effect as `node --use-system-ca`.
+ */
+function trustSystemCertificates(): void {
+  if (systemCaAdded) return;
+  systemCaAdded = true;
+  try {
+    const all = new Set([...tls.getCACertificates('default'), ...tls.getCACertificates('system')]);
+    tls.setDefaultCACertificates([...all]);
+  } catch {
+    // Older Node without these APIs: keep the bundled list.
+  }
 }
