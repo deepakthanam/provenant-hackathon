@@ -1,0 +1,25 @@
+PROVENANT DEMO NARRATION (about 2:40 spoken; read calmly)
+
+[0:00 THE PROBLEM]
+AI agents are starting to shop for us, and pay with PayPal. But when one of those orders is disputed, nobody can say who's at fault. Did the user change their mind? Did the agent overspend? Or did the merchant ship the wrong thing? Today, the merchant just eats the loss. Provenant fixes that.
+
+[0:18 AN AGENT BUYS]
+This is Ovalwork, a demo running store. Every product page publishes the facts an agent reads. I'll ask our shopping agent, powered by Claude, for black running shoes, size ten, under ninety dollars, and to check with me above fifty. Claude turns that into a mandate I sign with my own key, compares the offers, and asks me to confirm the sixty-five dollar pair. The PayPal order carries a custom ID pointing to a sealed evidence bundle: my mandate, the exact page and image the agent saw, its reasoning, and the cart. All hash-chained and signed.
+
+[0:50 DISPUTES ARRIVE]
+Later, disputes arrive from PayPal. Here are five, each already judged against its evidence bundle. Deterministic rules decide the verdict. Claude only compares the buyer's claim with what the agent actually saw.
+
+[1:08 AGENT OVERSPENT]
+In this one, the user capped spending at fifty, and the agent paid sixty-five without asking. The mandate check fails, so the verdict is: agent out of bounds. Here's the exact PayPal Disputes API call, accept claim with a refund. Nothing moves until I approve. (click) Done. The buyer is refunded, and the sixty-five dollars is booked to the agent platform's liability, not the merchant's.
+
+[1:45 WRONG ITEM]
+Here the buyer says the shoes arrived blue. On one side, the listing image the agent saw: black. On the other, the buyer's photo. Claude reports one material difference and cites the exact snapshot field, colour. The merchant's own shipping record agrees, so the right answer is a refund from the merchant.
+
+[2:15 TAMPERED]
+And if anyone edits the evidence after the fact, the hash chain breaks. The seal tears, and Provenant refuses to judge: no PayPal call, straight to human review.
+
+[2:33 REAL SANDBOX]
+This also runs against the real PayPal sandbox: Agent Toolkit orders, captures, tracking, and a real buyer dispute picked up and judged. And throughout, the model never decides, and never moves money.
+
+[2:50 CLOSE]
+Provenant. Sealed at purchase, judged by rules, settled through PayPal.
