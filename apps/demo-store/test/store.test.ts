@@ -63,3 +63,32 @@ describe('demo store', () => {
     expect(res.json()).toEqual({ shipped: false, fulfilment: null });
   });
 });
+
+describe('storefront pages', () => {
+  it('filters the wall by query and aisle, and serves its fonts', async () => {
+    const app = await buildStore({ baseUrl: 'http://store.test' });
+    const blue = await app.inject('/?q=blue');
+    expect(blue.body.match(/class="slot"/g)).toHaveLength(1);
+    expect(blue.body).toContain('RUN-BLU-10');
+    const trail = await app.inject('/?aisle=trail');
+    expect(trail.body.match(/class="slot"/g)).toHaveLength(3);
+    const none = await app.inject('/?q=purple');
+    expect(none.body).toContain('Nothing on this shelf');
+    const font = await app.inject('/fonts/barlow-condensed-latin-800-normal.woff2');
+    expect(font.statusCode).toBe(200);
+    expect(font.headers['content-type']).toBe('font/woff2');
+    expect((await app.inject('/fonts/../package.json')).statusCode).toBe(404);
+  });
+
+  it('keeps the agent-read hooks on product pages and has a styled 404', async () => {
+    const app = await buildStore({ baseUrl: 'http://store.test' });
+    const res = await app.inject('/p/RUN-BLK-10');
+    expect(res.body).toContain('data-attr="color">black<');
+    expect(res.body).toContain('data-price="84.00"');
+    expect(res.body).toContain('href="/p/RUN-BLK-9"');
+    expect(res.body).toContain('href="/p/RUN-BLU-10"');
+    const missing = await app.inject('/p/NOPE');
+    expect(missing.statusCode).toBe(404);
+    expect(missing.body).toContain('isn’t on the wall');
+  });
+});

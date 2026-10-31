@@ -1,6 +1,20 @@
+import { readFile } from 'node:fs/promises';
+import { createRequire } from 'node:module';
 import Fastify, { type FastifyInstance } from 'fastify';
+import { type ArtKind, renderPng } from './art';
 import { CATALOG, findProduct, type Product, SUBSTITUTES, search } from './catalog';
-import { shoeImage } from './png';
+import {
+  AISLES,
+  type AisleId,
+  aisleOf,
+  artStyle,
+  FONT_FILES,
+  homePage,
+  notFoundPage,
+  productPage,
+} from './pages';
+
+const require = createRequire(import.meta.url);
 
 export interface StoreOptions {
   /** Where this store is reachable (used in links and JSON-LD). */
@@ -22,11 +36,8 @@ export interface FulfilRequest {
   deliver?: boolean;
 }
 
-const esc = (s: string) =>
-  s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
-
-function productPage(prod: Product, base: string, merchantId: string): string {
-  const jsonLd = {
+function productJsonLd(prod: Product, base: string, merchantId: string) {
+  return {
     '@context': 'https://schema.org',
     '@type': 'Product',
     sku: prod.sku,
@@ -60,18 +71,35 @@ function productPage(prod: Product, base: string, merchantId: string): string {
       },
     },
   };
-  const attrs = Object.entries(prod.attributes)
-    .map(([k, v]) => `<tr><th>${esc(k)}</th><td data-attr="${esc(k)}">${esc(v)}</td></tr>`)
-    .join('');
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>${esc(prod.title)} — Provenant demo store</title>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, '\\u003c')}</script>
-<style>body{font:15px/1.5 system-ui,sans-serif;max-width:720px;margin:2rem auto;padding:0 1rem;color:#0f172a}img{border-radius:12px;border:1px solid #e2e8f0}th{text-align:left;color:#64748b;padding-right:1rem}.price{font-size:1.6rem;font-weight:700}</style>
-</head><body><p><a href="/">Provenant demo store</a></p>
-<h1>${esc(prod.title)}</h1><img src="/img/${esc(prod.sku)}.png" width="320" height="200" alt="${esc(prod.title)}">
-<p class="price" data-price="${esc(prod.price.value)}">$${esc(prod.price.value)}</p><p>${esc(prod.description)}</p>
-<table>${attrs}<tr><th>delivery</th><td>${prod.delivery_promise.min_days}–${prod.delivery_promise.max_days} days</td></tr><tr><th>sku</th><td>${esc(prod.sku)}</td></tr></table>
-</body></html>`;
+}
+
+const STOP = new Set([
+  'size',
+  'under',
+  'for',
+  'a',
+  'the',
+  'and',
+  'pair',
+  'of',
+  'me',
+  'buy',
+  'some',
+  'shoes',
+  'shoe',
+  'running',
+]);
+
+/** The storefront's own filter: every word of the query must appear on the box. */
+function wallFilter(q: string): Product[] {
+  const tokens = q
+    .toLowerCase()
+    .split(/[^a-z0-9/]+/)
+    .filter((t) => t && !STOP.has(t));
+  return CATALOG.filter((p) => {
+    const hay = [p.model, p.title, p.sku, ...Object.values(p.attributes), ...p.tags].join(' ').toLowerCase();
+    return tokens.every((t) => hay.includes(t) || hay.includes(t.replace(/s$/, '')));
+  });
 }
 
 /** The demo merchant: catalog, product pages with JSON-LD, images, and a shipping desk with a "wrong item" switch. */
@@ -80,35 +108,35 @@ export async function buildStore(opts: StoreOptions): Promise<FastifyInstance> {
   const fetchImpl = opts.fetch ?? fetch;
   const state = { wrongItem: false };
   const app = Fastify({ logger: opts.logger ?? false });
-  const images = new Map<string, Buffer>();
   const imageFor = (sku: string, photo = false) => {
-    const key = `${sku}:${photo}`;
-    if (!images.has(key)) {
-      const prod = findProduct(sku)!;
-      images.set(
-        key,
-        shoeImage(prod.attributes.color ?? 'grey', {
-          style: prod.attributes.style?.includes('hybrid') ? 'hybrid' : prod.attributes.style,
-          kind: prod.kind,
-          photo,
-        }),
-      );
-    }
-    return images.get(key)!;
+    const prod = findProduct(sku)!;
+    return renderPng(
+      { color: prod.attributes.color ?? 'grey', kind: prod.kind as ArtKind, style: artStyle(prod) },
+      photo,
+    );
   };
+  const fonts = new Map<string, string>(
+    FONT_FILES.map(([pkg, file]) => [file, require.resolve(`@fontsource/${pkg}/files/${file}`)]),
+  );
 
   app.get('/healthz', async () => ({ status: 'ok', wrong_item: state.wrongItem }));
 
-  app.get('/', async (_req, reply) => {
-    const cards = CATALOG.map(
-      (x) =>
-        `<li><a href="/p/${x.sku}"><img src="/img/${x.sku}.png" width="160" height="100" alt=""><br>${esc(x.title)}</a> — $${x.price.value} · size ${esc(x.attributes.size ?? '')}</li>`,
-    ).join('');
+  app.get<{ Querystring: { q?: string; aisle?: string } }>('/', async (req, reply) => {
+    const q = (req.query.q ?? '').slice(0, 120);
+    const aisle = AISLES.some((a) => a.id === req.query.aisle) ? (req.query.aisle as AisleId) : null;
+    const products = wallFilter(q).filter((p) => !aisle || aisleOf(p) === aisle);
     return reply
-      .type('text/html')
-      .send(
-        `<!doctype html><html><head><meta charset="utf-8"><title>Provenant demo store</title><style>body{font:15px system-ui,sans-serif;max-width:900px;margin:2rem auto}ul{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:1rem;list-style:none;padding:0}</style></head><body><h1>Provenant demo store</h1><p>Wrong-item switch: <strong>${state.wrongItem ? 'ON' : 'off'}</strong></p><ul>${cards}</ul></body></html>`,
-      );
+      .type('text/html; charset=utf-8')
+      .send(homePage({ products, q, aisle, wrongItem: state.wrongItem }));
+  });
+
+  app.get<{ Params: { file: string } }>('/fonts/:file', async (req, reply) => {
+    const path = fonts.get(req.params.file);
+    if (!path) return reply.code(404).send();
+    return reply
+      .type('font/woff2')
+      .header('cache-control', 'public, max-age=31536000, immutable')
+      .send(await readFile(path));
   });
 
   app.get('/api/catalog', async () => ({ merchant_id: merchantId, products: CATALOG }));
@@ -128,21 +156,30 @@ export async function buildStore(opts: StoreOptions): Promise<FastifyInstance> {
 
   app.get<{ Params: { sku: string } }>('/p/:sku', async (req, reply) => {
     const prod = findProduct(req.params.sku);
-    if (!prod) return reply.code(404).type('text/html').send('<h1>Not found</h1>');
-    return reply.type('text/html; charset=utf-8').send(productPage(prod, opts.baseUrl, merchantId));
+    if (!prod) return reply.code(404).type('text/html; charset=utf-8').send(notFoundPage(state.wrongItem));
+    return reply.type('text/html; charset=utf-8').send(
+      productPage({
+        product: prod,
+        jsonLd: productJsonLd(prod, opts.baseUrl, merchantId),
+        wrongItem: state.wrongItem,
+      }),
+    );
   });
 
   app.get<{ Params: { file: string } }>('/img/:file', async (req, reply) => {
     const sku = req.params.file.replace(/\.png$/, '');
     if (!findProduct(sku)) return reply.code(404).send();
-    return reply.type('image/png').header('cache-control', 'public, max-age=3600').send(imageFor(sku));
+    return reply
+      .type('image/png')
+      .header('cache-control', 'public, max-age=3600')
+      .send(await imageFor(sku));
   });
 
   /** A photo of an item as it arrived (what a buyer would attach to a dispute). */
   app.get<{ Params: { file: string } }>('/photo/:file', async (req, reply) => {
     const sku = req.params.file.replace(/\.png$/, '');
     if (!findProduct(sku)) return reply.code(404).send();
-    return reply.type('image/png').send(imageFor(sku, true));
+    return reply.type('image/png').send(await imageFor(sku, true));
   });
 
   app.get('/admin/state', async () => ({ wrong_item: state.wrongItem, substitutes: SUBSTITUTES }));

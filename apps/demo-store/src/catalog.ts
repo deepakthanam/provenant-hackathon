@@ -1,5 +1,7 @@
 export interface Product {
   sku: string;
+  /** Model name shown on the box (presentation only; the agent reads `title`). */
+  model: string;
   title: string;
   description: string;
   category: 'footwear' | 'apparel';
@@ -19,6 +21,7 @@ const p = (x: Omit<Product, 'price'> & { price: string }): Product => ({
 export const CATALOG: Product[] = [
   p({
     sku: 'RUN-BLK-10',
+    model: 'Ridgeback Trail',
     title: 'Trail runner, black',
     description: 'Lugged trail running shoe with a rock plate. Black mesh upper.',
     category: 'footwear',
@@ -30,6 +33,7 @@ export const CATALOG: Product[] = [
   }),
   p({
     sku: 'RUN-BLU-10',
+    model: 'Ridgeback Trail',
     title: 'Trail runner, blue',
     description: 'Lugged trail running shoe with a rock plate. Blue mesh upper.',
     category: 'footwear',
@@ -41,6 +45,7 @@ export const CATALOG: Product[] = [
   }),
   p({
     sku: 'RUN-BLK-9',
+    model: 'Ridgeback Trail',
     title: 'Trail runner, black',
     description: 'Lugged trail running shoe with a rock plate. Black mesh upper.',
     category: 'footwear',
@@ -52,6 +57,7 @@ export const CATALOG: Product[] = [
   }),
   p({
     sku: 'ROAD-BLK-10',
+    model: 'Tempo Road',
     title: 'Road racer, black',
     description: 'Light road running shoe with a foam midsole. Black knit upper.',
     category: 'footwear',
@@ -63,6 +69,7 @@ export const CATALOG: Product[] = [
   }),
   p({
     sku: 'HYB-BLK-10',
+    model: 'Doorstep Hybrid',
     title: 'Trail/road hybrid runner, black',
     description: 'Door-to-trail hybrid: road cushioning with a light trail outsole. Black upper.',
     category: 'footwear',
@@ -74,6 +81,7 @@ export const CATALOG: Product[] = [
   }),
   p({
     sku: 'PRO-BLK-10',
+    model: 'Carbon Pro',
     title: 'Carbon racer pro, black',
     description: 'Carbon-plated marathon racer. Black.',
     category: 'footwear',
@@ -85,6 +93,7 @@ export const CATALOG: Product[] = [
   }),
   p({
     sku: 'BOOT-BRN-10',
+    model: 'Fellside Boot',
     title: 'Hiking boot, brown',
     description: 'Waterproof leather hiking boot. Brown.',
     category: 'footwear',
@@ -96,6 +105,7 @@ export const CATALOG: Product[] = [
   }),
   p({
     sku: 'SOCK-RUN-3PK',
+    model: 'Long Run Sock',
     title: 'Running socks (3 pack)',
     description: 'Cushioned running socks, three pairs. Black.',
     category: 'apparel',

@@ -23,7 +23,7 @@ Requires Node 22+ and Git. Three commands:
 ```sh
 corepack enable          # provides pnpm (pinned in package.json)
 pnpm bootstrap           # install, .env, signing + API keys, embedded Postgres 16, migrations, seed
-pnpm dev                 # API :4000 (OpenAPI at /docs) · console :3000 · demo store :4100
+pnpm dev                 # API :4000 (OpenAPI at /docs) · console :3000 · demo store "Ovalwork Running" :4100
 ```
 
 Then run the demo (in a second terminal, or on its own: it starts the stack when needed):
