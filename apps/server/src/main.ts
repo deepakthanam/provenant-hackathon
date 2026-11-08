@@ -37,7 +37,7 @@ const close = async () => {
 process.on('SIGINT', close);
 process.on('SIGTERM', close);
 
-await app.listen({ port: env.PORT, host: '0.0.0.0' });
+await app.listen({ port: env.PORT, host: env.HOST });
 
 // Dispute intake: finish anything stored but unprocessed, then poll as the no-tunnel fallback.
 const resumed = await app.intake.resumePending();

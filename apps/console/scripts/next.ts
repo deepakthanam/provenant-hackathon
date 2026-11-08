@@ -4,7 +4,7 @@ import { loadEnv } from '@provenant/config';
 
 const env = loadEnv();
 const cmd = process.argv[2] ?? 'dev';
-const child = spawn('next', [cmd, '-p', String(env.CONSOLE_PORT)], {
+const child = spawn('next', [cmd, '-p', String(env.CONSOLE_PORT), '-H', env.HOST], {
   stdio: 'inherit',
   shell: true,
   env: { ...process.env, NEXT_PUBLIC_API_BASE_URL: env.PUBLIC_BASE_URL },

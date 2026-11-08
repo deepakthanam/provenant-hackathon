@@ -7,6 +7,7 @@ const NAV = [
   { href: '/', label: 'Disputes', match: (p: string) => p === '/' || p.startsWith('/disputes') },
   { href: '/liability', label: 'Liability', match: (p: string) => p.startsWith('/liability') },
   { href: '/bundles', label: 'Bundles', match: (p: string) => p.startsWith('/bundles') },
+  { href: '/guide', label: 'How to use', match: (p: string) => p.startsWith('/guide') },
 ];
 
 export function TopBand({ mode }: { mode: string }) {

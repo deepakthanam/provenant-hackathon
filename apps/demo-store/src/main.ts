@@ -9,4 +9,4 @@ const app = await buildStore({
     ? { baseUrl: env.PUBLIC_BASE_URL, apiKey: env.PROVENANT_MERCHANT_API_KEY }
     : undefined,
 });
-await app.listen({ port: env.DEMO_STORE_PORT, host: '0.0.0.0' });
+await app.listen({ port: env.DEMO_STORE_PORT, host: env.HOST });

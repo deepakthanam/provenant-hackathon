@@ -27,6 +27,8 @@ const optionalString = z
 
 export const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+  /** Interface the API, console and store listen on. Set 127.0.0.1 behind a reverse proxy. */
+  HOST: z.string().default('0.0.0.0'),
   PORT: z.coerce.number().int().positive().default(4000),
   CONSOLE_PORT: z.coerce.number().int().positive().default(3000),
   DEMO_STORE_PORT: z.coerce.number().int().positive().default(4100),
