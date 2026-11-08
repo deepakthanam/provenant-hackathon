@@ -91,7 +91,7 @@ Claude does the part that needs judgement about messy input. Given the offer sna
 ## What's next
 
 - Claude drafts the message to the buyer that accompanies each action. The merchant edits and approves it.
-- A hosted deployment (a Render blueprint is in `infra/render.yaml`).
+- Production hosting with real merchant onboarding (the live demo runs on a single VPS; a Render blueprint is in `infra/render.yaml`).
 - Evidence bundles for subscriptions and multi-merchant carts, and adopting standard mandate formats as agent-payment protocols mature.
 ```
 
@@ -107,6 +107,8 @@ typescript, node.js, fastify, next.js, react, tailwindcss, postgresql, drizzle-o
 
 ## "Try it out" links
 
+- `https://srv468681.hstgr.cloud:8443`: live demo, merchant console (start with "How to use")
+- `https://srv468681.hstgr.cloud:8444`: live demo store the agent buys from
 - `https://github.com/deepakthanam/provenant-hackathon`: source code, setup and run instructions
 - `<youtube-url>`: demo video
 
@@ -177,14 +179,22 @@ Before submitting, check that:
 
 ## Working demo / test build URL
 
-`https://github.com/deepakthanam/provenant-hackathon`: no hosted deployment. Judges run it locally with three commands and no credentials (see below).
+`https://srv468681.hstgr.cloud:8443`
+
+The live merchant console, with five disputes judged by Claude and waiting for approval. The guide is at `/guide` ("How to use" in the top bar). The demo store is at `https://srv468681.hstgr.cloud:8444`. PayPal runs in mock mode there, and the data resets daily at 03:30 UTC. The repository also runs locally with three commands and no credentials (see below).
 
 ---
 
 ## Testing instructions
 
 ```
-No accounts, API keys or Docker needed. Requires Node 22+ and Git.
+LIVE DEMO (no login): https://srv468681.hstgr.cloud:8443
+- Click "How to use" in the top bar for a five-minute guided tour.
+- Open a dispute, review the evidence and the planned PayPal call, and click "Approve and send".
+- Demo store the agent buys from: https://srv468681.hstgr.cloud:8444
+- PayPal runs in mock mode on the live demo; the data resets daily at 03:30 UTC, so approvals by other judges may be visible.
+
+RUN IT LOCALLY: no accounts, API keys or Docker needed. Requires Node 22+ and Git.
 
   git clone https://github.com/deepakthanam/provenant-hackathon provenant && cd provenant
   corepack enable

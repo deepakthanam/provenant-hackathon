@@ -2,6 +2,8 @@
 
 **Signed evidence and fair verdicts for disputes on purchases made by AI agents.**
 
+**Live demo:** [merchant console](https://srv468681.hstgr.cloud:8443) (start with [How to use](https://srv468681.hstgr.cloud:8443/guide)) · [demo store](https://srv468681.hstgr.cloud:8444). PayPal runs in mock mode there; data resets daily.
+
 When an AI shopping agent buys something and the buyer later disputes it, nobody can say who is at fault. Did the agent overstep what its user asked for? Did the merchant ship something other than what the agent saw? Or did the user just change their mind? Today the merchant eats the loss by default, because there is no record of what the user authorised or what the agent saw. Provenant closes that liability gap.
 
 At purchase time it seals a signed, tamper-evident **evidence bundle** for every order an agent places through PayPal: the user's signed mandate, the approved cart, a snapshot of the offer (including the image), and the agent's decision trace. The bundle is linked to the PayPal order through `purchase_units[].custom_id`. When PayPal reports a dispute, Provenant judges the claim against the bundle, assigns fault with one of five verdicts, and, once the merchant approves, takes the matching action through the PayPal Disputes API.
