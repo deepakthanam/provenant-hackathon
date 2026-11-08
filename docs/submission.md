@@ -2,7 +2,7 @@
 
 One section per form field, in the order the form asks. Fields marked **(you decide)** are about you personally, so check the suggested answer before submitting.
 
-Before submitting, replace `<github-url>` and `<youtube-url>` everywhere in this file.
+Before submitting, replace `<youtube-url>` everywhere in this file with your video link.
 
 ---
 
@@ -107,7 +107,7 @@ typescript, node.js, fastify, next.js, react, tailwindcss, postgresql, drizzle-o
 
 ## "Try it out" links
 
-- `<github-url>`: source code, setup and run instructions
+- `https://github.com/deepakthanam/provenant-hackathon`: source code, setup and run instructions
 - `<youtube-url>`: demo video
 
 ---
@@ -166,7 +166,7 @@ AI
 
 ## Public code repository
 
-`<github-url>`
+`https://github.com/deepakthanam/provenant-hackathon`
 
 Before submitting, check that:
 - the repo is **public**;
@@ -177,7 +177,7 @@ Before submitting, check that:
 
 ## Working demo / test build URL
 
-`<github-url>`: no hosted deployment. Judges run it locally with three commands and no credentials (see below).
+`https://github.com/deepakthanam/provenant-hackathon`: no hosted deployment. Judges run it locally with three commands and no credentials (see below).
 
 ---
 
@@ -186,7 +186,7 @@ Before submitting, check that:
 ```
 No accounts, API keys or Docker needed. Requires Node 22+ and Git.
 
-  git clone <github-url> provenant && cd provenant
+  git clone https://github.com/deepakthanam/provenant-hackathon provenant && cd provenant
   corepack enable
   pnpm bootstrap      # installs, writes .env, generates keys, starts embedded Postgres 16, seeds
   pnpm demo           # five agent purchases → five disputes → five verdicts, approved and settled
