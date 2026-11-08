@@ -14,6 +14,14 @@ flowchart LR
   B --> J --> C[Merchant console] -->|approve| X[Disputes API call] --> P
 ```
 
+| Dispute queue (AG Grid) | Wrong item: listing vs buyer photo, Claude's cited finding |
+| --- | --- |
+| ![Dispute queue](docs/screenshots/03-queue.png) | ![Wrong item](docs/screenshots/05-wrong-item.png) |
+| **Agent out of bounds: the planned PayPal call** | **Demo store an agent buys from** |
+| ![Agent out of bounds](docs/screenshots/04-out-of-bounds.png) | ![Store](docs/screenshots/01-store.png) |
+
+Demo video: see the Devpost page. Script: [docs/demo-script.md](docs/demo-script.md). Submission answers: [docs/submission.md](docs/submission.md).
+
 More detail: [docs/architecture.md](docs/architecture.md) · [docs/verdicts.md](docs/verdicts.md) · [docs/api.md](docs/api.md) · [PROGRESS.md](PROGRESS.md) (status and deviations from the spec).
 
 ## Quick start (no credentials, no Docker)
@@ -35,7 +43,7 @@ pnpm demo --no-approve   # same, but leaves the verdicts for you to approve in t
 
 From a fresh clone, `pnpm bootstrap && pnpm demo` is all it takes.
 
-Open the console at http://localhost:3000.
+Open the console at http://localhost:3000. If port 3000 is busy, Next.js picks the next free port (for example 3001) and prints it in the `pnpm dev` output.
 
 - Use `pnpm bootstrap` rather than `pnpm setup`: `setup` is a built-in pnpm command that modifies your PATH. The `setup` script exists too and can be run as `pnpm run setup`.
 - Postgres starts embedded (data in `./data/pg`) unless something already answers at `DATABASE_URL`. To use Docker instead, run `docker compose -f infra/docker-compose.yml up -d` and set `DATABASE_MODE=external`.
@@ -60,6 +68,20 @@ Shop as the agent yourself:
 ```sh
 pnpm agent "black running shoes size 10 under $90, ask me above $50"
 ```
+
+## Tools used
+
+| Tool | Role |
+| --- | --- |
+| **PayPal** REST APIs (OAuth 2.0, Orders v2, Disputes v1, Webhooks) and the **PayPal Agent Toolkit** | Agent checkout with `custom_id`, capture, tracking, dispute intake and every dispute action. Details below. |
+| **Claude Sonnet 5.5** (`claude-sonnet-5-5`) via the Anthropic API | Claim-vs-snapshot comparison in the adjudicator; mandate parsing and offer choice in the demo agent. See "What AI does". |
+| **Model Context Protocol** | `packages/mcp-server` exposes Provenant to Claude Desktop and Claude Code |
+| **AG Grid** Community (sponsor tool) | The console's dispute queue: filters, custom cell renderers, verdict grouping |
+| **Postman** (sponsor tool) | `postman/` collection of the full flow, run with Newman (`pnpm postman`) |
+| Fastify, Next.js, PostgreSQL 16, Drizzle, Zod, Vitest, Playwright, Turborepo | API, console, ledger, schemas, tests, build |
+| Claude Code | Used while building, as a pair programmer for code, tests and docs |
+
+Built during the PayPal AI Hackathon (first commit 16 October 2026; history in [PROGRESS.md](PROGRESS.md)).
 
 ## What AI does, and what it never does
 

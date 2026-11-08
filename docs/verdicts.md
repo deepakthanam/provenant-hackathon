@@ -19,7 +19,7 @@ Every dispute gets exactly one of five verdicts, chosen by deterministic rules i
 3. **Delivery** (`deliveryRules`): shipped, tracking present, delivered, inside the promised window (+1 day), and what was packed matches the cart (from the merchant's own shipment record).
 4. **Claim vs snapshot** (`compareClaim`), for not-as-described claims only. Input: the dispute reason, the snapshot JSON and image (trusted), and the buyer's messages and photos as untrusted data in escaped `<buyer_claim>` / `<buyer_image>` blocks. Output, Zod-validated: `{ differences: [{ attribute, snapshot_value, claimed_value, snapshot_field_ref, severity }], claim_consistent_with_snapshot, notes }`. A difference whose `snapshot_field_ref` is not a real snapshot field is dropped and recorded. "Inconsistent" with no cited difference counts as consistent.
 5. **Decide** (`decide`), by dispute reason:
-   - **Not received**: not shipped → `MERCHANT_MISREPRESENTED` (0.90); delivered → `WITHIN_MANDATE` (0.88); past the window → `MERCHANT_MISREPRESENTED` (0.80); still in the window → `INSUFFICIENT_EVIDENCE`.
+   - **Not received**: not shipped → `MERCHANT_MISREPRESENTED` (0.90); shipped, and the buyer's text or photos describe a material difference from the listing (the claim comparison runs whenever the buyer said something) → judged with the not-as-described rules below, with a first reason saying so; delivered → `WITHIN_MANDATE` (0.88); past the window → `MERCHANT_MISREPRESENTED` (0.80); still in the window → `INSUFFICIENT_EVIDENCE`.
    - **Not as described**:
      - packed ≠ cart and the model reports a material difference → `MERCHANT_MISREPRESENTED` (0.93);
      - packed ≠ cart but no reported difference → `INSUFFICIENT_EVIDENCE` (conflict);

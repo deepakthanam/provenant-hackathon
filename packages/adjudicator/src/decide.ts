@@ -74,12 +74,33 @@ function decideRaw(d: DecideInput): Decision {
   const shipped = result(d.delivery, 'shipped');
   const delivered = result(d.delivery, 'delivered');
   const window = result(d.delivery, 'delivered_within_window');
-  const items = result(d.delivery, 'shipped_items_match_cart');
 
   // 3. Not received.
   if (d.reason === 'MERCHANDISE_OR_SERVICE_NOT_RECEIVED') {
     if (shipped && !shipped.passed)
       return verdict('MERCHANT_MISREPRESENTED', 0.9, [because(shipped), mandateOk]);
+    // Shipped, and the buyer describes the item that arrived as different from the listing:
+    // the reason code was the wrong menu choice, so judge it as not as described.
+    const m = d.model;
+    const describesArrivedItem =
+      shipped?.passed &&
+      m &&
+      !m.error &&
+      !m.claimConsistentWithSnapshot &&
+      m.findings.some((f) => f.severity !== 'minor');
+    if (describesArrivedItem) {
+      const judged = judgeDescription(d, mandateOk);
+      return {
+        ...judged,
+        reasons: [
+          {
+            text: 'filed as not received, but the item shipped and the buyer describes how it differs from the listing: judged as not as described',
+            ref: 'dispute.reason',
+          },
+          ...judged.reasons,
+        ],
+      };
+    }
     if (delivered?.passed)
       return verdict('WITHIN_MANDATE', 0.88, [
         because(delivered),
@@ -96,8 +117,36 @@ function decideRaw(d: DecideInput): Decision {
     ]);
   }
 
-  // 4. Not as described: what was packed (merchant's own record) and what the buyer reports (model).
-  if (DESCRIPTION_REASONS.has(d.reason)) {
+  // 4. Not as described.
+  if (DESCRIPTION_REASONS.has(d.reason)) return judgeDescription(d, mandateOk);
+
+  // 5. Unauthorised: the user's signed mandate is the authorisation.
+  if (d.reason === 'UNAUTHORISED') {
+    return verdict('WITHIN_MANDATE', 0.9, [
+      {
+        text: 'the purchase was authorised by a mandate the user signed with their key',
+        ref: 'intent_mandate.user_sig',
+      },
+      mandateOk,
+    ]);
+  }
+
+  // 6. Incorrect amount: the captured amount equals the approved cart (checked above).
+  if (d.reason === 'INCORRECT_AMOUNT') {
+    const eq = result(d.mandate, 'captured_equals_cart');
+    return verdict('WITHIN_MANDATE', 0.85, [...(eq ? [because(eq)] : []), mandateOk]);
+  }
+
+  return verdict('INSUFFICIENT_EVIDENCE', 0.5, [
+    { text: `Provenant does not adjudicate ${d.reason} disputes automatically`, ref: 'dispute.reason' },
+  ]);
+}
+
+/** Not as described: what was packed (merchant's own record) and what the buyer reports (model). */
+function judgeDescription(d: DecideInput, mandateOk: Decision['reasons'][number]): Decision {
+  const delivered = result(d.delivery, 'delivered');
+  const items = result(d.delivery, 'shipped_items_match_cart');
+  {
     const m = d.model;
     if (!m || m.error) {
       return verdict('INSUFFICIENT_EVIDENCE', 0.5, [
@@ -149,25 +198,4 @@ function decideRaw(d: DecideInput): Decision {
       ...(delivered?.passed ? [because(delivered)] : []),
     ]);
   }
-
-  // 5. Unauthorised: the user's signed mandate is the authorisation.
-  if (d.reason === 'UNAUTHORISED') {
-    return verdict('WITHIN_MANDATE', 0.9, [
-      {
-        text: 'the purchase was authorised by a mandate the user signed with their key',
-        ref: 'intent_mandate.user_sig',
-      },
-      mandateOk,
-    ]);
-  }
-
-  // 6. Incorrect amount: the captured amount equals the approved cart (checked above).
-  if (d.reason === 'INCORRECT_AMOUNT') {
-    const eq = result(d.mandate, 'captured_equals_cart');
-    return verdict('WITHIN_MANDATE', 0.85, [...(eq ? [because(eq)] : []), mandateOk]);
-  }
-
-  return verdict('INSUFFICIENT_EVIDENCE', 0.5, [
-    { text: `Provenant does not adjudicate ${d.reason} disputes automatically`, ref: 'dispute.reason' },
-  ]);
 }

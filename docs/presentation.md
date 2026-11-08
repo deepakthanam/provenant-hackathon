@@ -226,7 +226,7 @@ Three moments:
 **Visual:** console detail page for the sandbox dispute, with the planned PayPal request panel visible.
 
 **Speaker notes**
-"This isn't only a simulation. With real sandbox credentials the same code paths run against PayPal. One thing the sandbox taught us: the buyer wrote 'wrong colour' but PayPal filed the case as 'not received'. Provenant follows PayPal's reason code, so it judged on delivery evidence. A next step is to also run the claim comparison when the buyer's text describes a mismatch, whatever the reason code."
+"This isn't only a simulation. With real sandbox credentials the same code paths run against PayPal. One thing the sandbox taught us: the buyer wrote 'wrong colour' but PayPal filed the case as 'not received', because that's the menu option the buyer picked. So Provenant now runs the claim comparison on not-received disputes too whenever the buyer wrote or uploaded something. If the item shipped and the buyer describes a material difference from the listing, it's judged as not as described, and the verdict says why."
 
 *(Before presenting, update this slide with the result of approving the action: PayPal's response and the dispute's new status.)*
 
@@ -272,7 +272,8 @@ Three moments:
 **On slide**
 - **Today:** a demo store and demo agent; one merchant and one agent platform seeded.
 - **Next:**
-  - Run the claim comparison whenever the buyer's text describes a mismatch, whatever reason code PayPal assigns.
+  - Done during the hackathon: a "not received" dispute whose buyer describes a wrong item is now judged as not as described.
+  - Claude drafts the buyer message that goes with each action, which the merchant edits and approves.
   - Hosted deployment (Render blueprint is ready).
   - Real merchant onboarding with PayPal partner flows.
   - Evidence bundles for subscriptions and multi-item carts across merchants.

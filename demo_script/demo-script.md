@@ -1,6 +1,6 @@
 # Provenant demo video: script (under 3:00)
 
-Target length **2:50**. The narration is about 370 words, which takes about 2:40 at a calm 140 words a minute and leaves ten seconds for clicks and pauses. The narration alone, for a teleprompter, is in [narration.txt](narration.txt).
+Target length **2:50** (judges stop at 3:00). A copy lives in [docs/demo-script.md](../docs/demo-script.md). The narration is about 370 words, which takes about 2:40 at a calm 140 words a minute and leaves ten seconds for clicks and pauses. The narration alone, for a teleprompter, is in [demo_script/narration.txt](narration.txt).
 
 ---
 
@@ -139,6 +139,7 @@ cp data/env.before-demo.bak .env
 
 - 0:20 "Shopping agent powered by Claude"
 - 0:40 "PayPal order · custom_id = evidence bundle"
+- 0:55 "Dispute queue built on AG Grid"
 - 1:20 "Rules decide · Claude only compares"
 - 1:35 "Real PayPal Disputes API call · merchant approves"
 - 2:00 "Claude finding cites offer_snapshot.attributes.color"

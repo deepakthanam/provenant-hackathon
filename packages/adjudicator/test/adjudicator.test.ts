@@ -250,6 +250,37 @@ describe('delivery rules', () => {
       ],
     });
   });
+  it('filed as not received, but the buyer describes a wrong colour → judged as not as described', async () => {
+    const b = bundle({
+      fulfilment: {
+        ...bundle().fulfilment!,
+        shipped_items: [{ sku: 'RUN-BLU-10', attributes: { color: 'blue', size: '10' } }],
+      },
+    });
+    const r = await adjudicate(
+      input({
+        bundle: b,
+        dispute: dispute({ reason: 'MERCHANDISE_OR_SERVICE_NOT_RECEIVED' }),
+        messages: ['The shoes that came are blue. I ordered black.'],
+      }),
+      llm,
+    );
+    expect(r.verdict).toBe('MERCHANT_MISREPRESENTED');
+    expect(r.reasons[0]?.ref).toBe('dispute.reason');
+    expect(r.model?.findings[0]).toMatchObject({ attribute: 'color', claimed_value: 'blue' });
+    expect(r.plannedAction).toMatchObject({ kind: 'accept_claim' });
+  });
+  it('not received with a message that describes no difference keeps the delivery verdict', async () => {
+    const r = await adjudicate(
+      input({
+        dispute: dispute({ reason: 'MERCHANDISE_OR_SERVICE_NOT_RECEIVED' }),
+        messages: ['Where is my parcel?'],
+      }),
+      llm,
+    );
+    expect(r.verdict).toBe('WITHIN_MANDATE');
+    expect(r.model?.findings).toEqual([]);
+  });
   it('late delivery fails the window', () => {
     const late = bundle({
       fulfilment: { ...bundle().fulfilment!, delivered_at: '2026-10-25T10:00:00.000Z' },

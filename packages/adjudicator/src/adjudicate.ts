@@ -39,10 +39,13 @@ export async function adjudicate(input: AdjudicationInput, llm: LlmProvider): Pr
     : undefined;
   const delivery = bundle ? deliveryRules(bundle) : [];
   const integrityOk = integrity.every((r) => r.passed || r.skipped);
-  const model =
-    integrityOk && bundle?.offer_snapshot && DESCRIPTION_REASONS.has(input.dispute.reason)
-      ? await compareClaim(input, llm)
-      : null;
+  // PayPal's reason code is the buyer's menu choice, not always what they describe. A
+  // "not received" claim with buyer text or photos is compared too, in case the item arrived wrong.
+  const buyerSaidSomething = input.buyer.messages.length > 0 || input.buyer.images.length > 0;
+  const compare =
+    DESCRIPTION_REASONS.has(input.dispute.reason) ||
+    (input.dispute.reason === 'MERCHANDISE_OR_SERVICE_NOT_RECEIVED' && buyerSaidSomething);
+  const model = integrityOk && bundle?.offer_snapshot && compare ? await compareClaim(input, llm) : null;
   const decision = decide({
     reason: input.dispute.reason,
     integrity,

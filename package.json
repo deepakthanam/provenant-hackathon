@@ -30,6 +30,7 @@
     "test:e2e": "pnpm --filter @provenant/console test:e2e",
     "mcp": "pnpm --silent --filter @provenant/mcp-server start",
     "postman": "tsx scripts/postman.ts",
+    "pack:submission": "tsx scripts/pack-submission.ts",
     "openapi": "tsx scripts/openapi.ts"
   },
   "devDependencies": {
